@@ -8,7 +8,7 @@ WORKSPACE = ROOT / "workspace"
 for _d in (AGENTS_DIR, WORKSPACE):
     _d.mkdir(exist_ok=True)
 
-HOME = Path.home()
+HOME = Path.home().resolve()  # resolved: on macOS /var is really /private/var
 # Credentials and keys: blocked for every agent, whatever its permissions say.
 PROTECTED = [HOME / p for p in (".ssh", ".gnupg", ".aws", ".kube", ".docker", ".config/gcloud",
                                 "Library/Keychains", ".offline-agent")]

@@ -35,9 +35,16 @@ def kind_of(path):
 
 
 def short(p):
-    """Telegram style: /Users/you/Downloads -> ~/Downloads (fewer tokens)."""
-    s = str(p)
-    return "~" + s[len(str(HOME)):] if s.startswith(str(HOME)) else s
+    """Telegram style: /Users/you/Downloads -> ~/Downloads (fewer tokens). Always forward slashes."""
+    path = Path(p)
+    try:
+        path = path.resolve()
+    except OSError:
+        pass
+    s, h = path.as_posix(), HOME.as_posix()
+    if s == h:
+        return "~"
+    return "~" + s[len(h):] if s.startswith(h + "/") else s
 
 
 def _size(n):

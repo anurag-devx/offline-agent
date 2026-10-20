@@ -10,8 +10,9 @@ import sys
 import tempfile
 from pathlib import Path
 
-_HOME = tempfile.mkdtemp(prefix="oa-home-")
-os.environ["HOME"] = _HOME  # must happen before engine is imported (paths.HOME)
+_HOME = os.path.realpath(tempfile.mkdtemp(prefix="oa-home-"))
+os.environ["HOME"] = _HOME         # macOS/Linux; must happen before engine is imported (paths.HOME)
+os.environ["USERPROFILE"] = _HOME  # Windows uses this for the home folder
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import ollama  # noqa: E402
