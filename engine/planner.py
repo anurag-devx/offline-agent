@@ -31,8 +31,10 @@ def capabilities_summary(cfg):
     notes = [f"Model `{cfg.model}` runs on this computer; your data is not sent to any AI company.",
              f"At most {cfg.max_steps} model steps per pass; context window {cfg.context_length:,} tokens."]
     if cfg.mode == "rules":
-        notes.insert(0, "Rule mode: the model is used once to write a rule; you approve it with the exact file "
-                        "list; code moves the files and checks the result exactly.")
+        from .rules import rule_target
+        what = "emails" if rule_target(cfg) == "email" else "files"
+        notes.insert(0, f"Rule mode: the model is used once to write a rule; you approve it with the exact list "
+                        f"of {what}; code moves them and checks the result exactly.")
     elif cfg.plan_steps:
         notes.append("Job notes: it plans steps and ticks them off; code attaches evidence; finished steps' "
                      "messages are dropped so the context stays small. Saved as notes.md per job.")

@@ -176,9 +176,9 @@ with tabs[0]:
                         key=k("mode"), format_func={"agent": "Agent: the model does the work",
                                                     "rules": "Rule: the model writes a rule, code does the work"}.get)
         if mode == "rules":
-            st.caption("Rule mode is for organizing files. One model call turns the task into a rule like "
-                       "`~/Downloads · .pdf → all_pdf`; you approve it with the exact file list; code moves the "
-                       "files and checks the result. Fast and exact. Needs Files: Read and Move.")
+            st.caption("Rule mode organizes **files** (`~/Downloads · .pdf → all_pdf`) or **email** "
+                       "(`INBOX · from \"amazon\" → Receipts`). One model call writes the rule; you approve it with "
+                       "the exact list; code moves and checks. Needs Files: Read + Move, or Email: Read + Organize.")
         a, b, c = st.columns(3)
         plan_steps = a.checkbox("Job notes (plan + checklist)", base.plan_steps, key=k("notes"),
                                 help="The agent plans steps, ticks them off with a one-line note; code adds evidence. "

@@ -52,6 +52,7 @@ class Run:
     tool_calls: int = 0
     network_requests: int = 0
     file_changes: int = 0
+    email_changes: int = 0
     prompt_tokens: int = 0
     output_tokens: int = 0
     turns: int = 1
@@ -234,6 +235,8 @@ class RunManager:
                     run.network_requests += 1
                 elif kind == "file_op":
                     run.file_changes += 1
+                elif kind == "email_op":
+                    run.email_changes += 1
                 elif kind == "answer":
                     run.answer, final = e["content"], "completed"
                 elif kind == "stopped":

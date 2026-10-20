@@ -189,3 +189,54 @@ def email_mark_read(uid: str, folder: str = "INBOX"):
         return f"Marked email {uid} as read."
     finally:
         conn.logout()
+
+
+# ---------------------------------------------------------------- used by email rule mode
+
+def _criterion(value):
+    value = str(value).strip()
+    if not value.isascii():
+        raise ValueError(f"Use plain (ASCII) text in email rules: {value!r}")
+    return '"' + value.replace("\\", "\\\\").replace('"', '\\"') + '"'
+
+
+def search_uids(conn, folder, from_contains="", subject_contains="", unread_only=False):
+    """Server-side IMAP search (the mail server does the matching; no mail is downloaded)."""
+    _select(conn, folder)
+    parts = []
+    if from_contains:
+        parts += ["FROM", _criterion(from_contains)]
+    if subject_contains:
+        parts += ["SUBJECT", _criterion(subject_contains)]
+    if unread_only:
+        parts.append("UNSEEN")
+    if not (from_contains or subject_contains):
+        raise ValueError("An email rule needs from_contains and/or subject_contains.")
+    typ, data = conn.uid("search", None, *parts)
+    return [u.decode() for u in (data[0] or b"").split()]
+
+
+def headers(conn, uids):
+    """[(uid, sender, subject)] for a few uids (the folder must be selected)."""
+    if not uids:
+        return []
+    typ, data = conn.uid("fetch", ",".join(uids), "(BODY.PEEK[HEADER.FIELDS (FROM SUBJECT)])")
+    out = []
+    for item in data or []:
+        if isinstance(item, tuple):
+            uid = re.search(rb"UID (\d+)", item[0])
+            msg = email.message_from_bytes(item[1])
+            out.append((uid.group(1).decode() if uid else "?", _h(msg["From"]), _h(msg["Subject"])))
+    return out
+
+
+def move_uids(conn, uids, from_folder, to_folder):
+    """Move many emails in one command. Creates the destination folder if needed."""
+    _check_folder(to_folder)
+    if to_folder not in list_folder_names(conn):
+        conn.create(_q(to_folder))
+    _select(conn, from_folder, readonly=False)
+    typ, data = conn.uid("MOVE", ",".join(uids), _q(to_folder))
+    if typ != "OK":
+        raise RuntimeError(f"move failed: {data}")
+    return len(uids)

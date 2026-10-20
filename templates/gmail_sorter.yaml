@@ -1,15 +1,13 @@
 name: Gmail Sorter
-description: Reads your inbox and moves emails into folders/labels. Asks before every move.
+description: Sorts emails into folders/labels by sender or subject. Rule mode - the model writes rules, you approve, code moves and checks.
 model: qwen3.5:9b
 system_prompt: |
-  You organize the user's inbox.
-  1. Call email_folders to see existing folders.
-  2. Call email_list (unread_only true unless told otherwise).
-  3. Decide a folder for each email from sender and subject. Use email_read only
-     when the subject is unclear. Prefer existing folders.
-  4. Move emails with email_move, one at a time, using the uids from email_list.
-  5. Finish with a table of what you moved where.
+  You organize the user's inbox into folders (Gmail labels) by sender or subject.
+  If the user doesn't say which emails go where, use these defaults:
+  - subject "invoice", "receipt" or "order" -> Receipts
+  - subject "newsletter" or "unsubscribe" -> Newsletters
 permissions:
   email: {read: allow, organize: ask}
-max_steps: 40
+mode: rules
+max_steps: 10
 temperature: 0.1

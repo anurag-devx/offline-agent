@@ -98,8 +98,9 @@ def validate(cfg):
         checks.append(_check("Verification attempts", False, "Unlimited: the agent keeps retrying until it's "
                              "verified or you press Stop.", "warning"))
     if cfg.mode == "rules":
-        checks.append(_check("Rule mode", pol.mode("files.read") != OFF and pol.mode("files.move") != OFF,
-                             "Rule mode organizes files: turn on Files 'Read' and 'Move'."))
+        from .rules import rule_target
+        checks.append(_check("Rule mode", rule_target(cfg), "Rule mode organizes files or email: turn on Files "
+                             "'Read' + 'Move', or Email 'Read' + 'Organize'."))
     if cfg.max_reply_tokens and cfg.max_reply_tokens < 256 and tools_for(cfg):
         checks.append(_check("Reply cap", False, "Below 256 tokens, tool calls with long arguments get cut off.",
                              "warning"))

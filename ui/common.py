@@ -76,6 +76,8 @@ def render_event(e):
     elif t == "file_op":
         detail = f"{e.get('src', '')} → {e['dst']}" if e["op"] == "move" else (e.get("dst") or e.get("src"))
         st.caption(f"📁 {OP_LABEL.get(e['op'], e['op'])}: {detail}")
+    elif t == "email_op":
+        st.caption(f"✉️ moved email {e['uid']}: {e['from_folder']} → {e['to_folder']}")
     elif t == "network":
         st.caption(f"🌐 {'allowed' if e['allowed'] else '**BLOCKED**'} → {e['url'][:200]}")
     elif t == "tool_result":
@@ -152,7 +154,8 @@ def render_run(run, key):
     m = st.columns(6)
     m[0].metric("Steps", run.steps)
     m[1].metric("Tool calls", run.tool_calls)
-    m[2].metric("File changes", run.file_changes)
+    m[2].metric("Changes", run.file_changes + getattr(run, "email_changes", 0),
+                help="Files changed + emails moved")
     m[3].metric("Web requests", run.network_requests)
     m[4].metric("Tokens", f"{run.prompt_tokens + run.output_tokens:,}")
     m[5].metric("Time", fmt_secs(run.duration()))
