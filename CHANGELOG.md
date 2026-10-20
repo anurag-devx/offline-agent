@@ -1,5 +1,23 @@
 # Changelog
 
+## v0.2.0 (2026-10-20)
+
+- **Rule mode for email**: the model writes sender/subject rules once; the mail server matches
+  (IMAP SEARCH); code moves the emails and checks none are left. Gmail Sorter uses it.
+- **read_feed**: RSS/Atom parsed in code, one line per headline, keyword/today/hours filters.
+  News Collector uses it.
+- **Memory**: local notes and code-written run summaries, searched by meaning
+  (`nomic-embed-text`); Recall/Remember permissions; Memory page; poisoning warnings.
+- **Schedules**: daily / chosen days / every N minutes; in the app or `offline-agent scheduler`;
+  one scheduler at a time; unattended runs deny approvals.
+- **Packaging**: `pip install git+https://github.com/crazzzyann/offline-agent.git`, the
+  `offline-agent` command (studio, list, run, check, scheduler, where). Data lives in the project
+  folder (git checkout) or `~/OfflineAgent` (installed). Code moved into `offline_agent/`.
+
+## v0.1.1 (2026-10-20)
+
+- Fix paths on macOS (symlinked home) and Windows (USERPROFILE, forward slashes)
+
 ## v0.1.0 (2026-10-20)
 
 First public release.

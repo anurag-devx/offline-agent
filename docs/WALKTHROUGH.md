@@ -1,5 +1,7 @@
 # Walkthrough: how offline-agent works
 
+All code is in `offline_agent/`. Paths below like `engine/agent.py` mean `offline_agent/engine/agent.py`.
+
 Read in this order. Each part builds on the one before.
 
 ## 0. The big idea
@@ -70,6 +72,15 @@ Every token costs time on a laptop, so the framework is frugal at three levels:
      dropped (`Agent._compact`). Context stays roughly constant however long the job runs.
 3. **Rule mode** (`engine/rules.py`): for routine jobs the model is called once, to turn words into a
    rule. Code does the rest. Principle: **the model decides, code does the work.**
+
+## Part 4d: memory and schedules
+- `engine/memory.py`: notes in SQLite; search by meaning with embeddings (numbers that represent
+  meaning; similar meaning = similar numbers). Recalled notes are framed as information, never
+  instructions. Run summaries are built by code (`run_summary`), so nothing is invented.
+- `engine/scheduler.py`: one background thread per process, a lock file so only one process runs
+  schedules, and `RunManager(unattended=True)` so nobody-is-watching runs deny approvals.
+- `engine/rules.py` → `EmailRuleAgent`: rule mode for email; IMAP `SEARCH` lets the mail server
+  do the matching, so no mail is downloaded to decide what moves.
 
 ## Part 5: understanding before running
 - `engine/planner.py`: capabilities summary and diagram need no model. `plan_task()` asks the

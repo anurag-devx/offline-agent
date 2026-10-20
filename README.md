@@ -59,13 +59,17 @@ max_steps: 80
 | **Two modes** | *Agent*: the model does the work with tools. *Rule*: the model writes one rule (`~/Downloads · .pdf → all_pdf`), you approve it with the exact file list, code executes and checks it. One model call, exact, seconds |
 | **Job notes** | Every task gets a job ID, a plan and a checklist (`runs/<job>/notes.md`). The agent closes steps with a one-line note; code attaches evidence, refuses "done" on failed steps, flags mismatches. Finished steps' messages are dropped, so the context stays small |
 | **Telegram style** | Compact tool output (`OK moved 138/140 ~/Downloads → all_pdf`), short replies, capped reply length: fewer tokens, faster on laptops |
+| **Email rule mode** | Same idea for Gmail: `INBOX · from "amazon" → Receipts`. The mail server does the matching; code moves and checks |
+| **News feeds** | `read_feed` parses RSS/Atom in code: one line per headline, filtered by keyword and date |
+| **Memory** | Notes and run summaries stored on your computer, searched by meaning (local `nomic-embed-text`). Recall/Remember permissions; notes are shown as information, never instructions |
+| **Schedules** | Run agents every day at a time or every N minutes, in the app or headless (`offline-agent scheduler`) |
 | **Verification** | Optional read-only verifier checks the real state when the agent says "done". Not done → the agent is told what's missing and continues (up to N rounds, or until you press Stop) |
 | **File safety** | Never overwrites (clashes get `_1`), delete goes to the Trash, every file change logged (CSV), **Undo** for moves |
 | **Everything recorded** | Each run's config, every step, tool call, web request and approval in `runs/`; app activity in `logs/` |
 | **Models** | See installed models and their capabilities, download new ones, import `.gguf` files from your computer (e.g. Unsloth fine-tunes) |
 | **Workspace** | The only folder file tools can touch. Preview websites agents build, upload/download files |
 
-Templates: General Assistant, Math Helper, File Helper, Note Taker, **File Sorter**,
+Templates (in `offline_agent/templates/`): General Assistant, Math Helper, File Helper, Note Taker, **File Sorter**,
 **Website Builder**, **Gmail Sorter**, **Web Researcher**, **News Collector**.
 
 ## Requirements
@@ -88,26 +92,43 @@ Bigger models are more reliable, smaller ones faster.
 ## Quick start
 
 ```bash
-git clone https://github.com/crazzzyann/offline-agent.git
-cd offline-agent
-python3 -m venv .venv
-source .venv/bin/activate        # Windows: .venv\Scripts\activate
-pip install -r requirements.txt
-ollama pull qwen3.5:9b           # or any model with tool support
-streamlit run app.py
+# 1. Install (needs Python 3.10+ and Ollama)
+pip install git+https://github.com/crazzzyann/offline-agent.git
+
+# 2. Get a model with tool calling
+ollama pull qwen3.5:9b
+
+# 3. Open the Studio
+offline-agent studio
 ```
 
-Terminal (approvals asked as y/n, runs recorded the same way):
+Your agents, runs, memory and workspace are stored in `~/OfflineAgent`
+(`offline-agent where` shows it; set `OFFLINE_AGENT_HOME` to move it).
+
+**From source** (to change the code):
 
 ```bash
-python run.py                              # list agents
-python run.py templates/file_helper.yaml
+git clone https://github.com/crazzzyann/offline-agent.git
+cd offline-agent
+python3 -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
+pip install -e ".[dev]"
+offline-agent studio            # data stays in the project folder
+python -m pytest -q             # tests, no Ollama needed
 ```
 
-Python:
+**Terminal:**
+
+```bash
+offline-agent list                     # your agents and the templates
+offline-agent run file_sorter          # chat with an agent (approvals asked as y/n)
+offline-agent check news_collector     # validate an agent
+offline-agent scheduler                # run schedules without the app
+```
+
+**Python:**
 
 ```python
-from engine import Agent, load_agent
+from offline_agent.engine import Agent, load_agent
 agent = Agent(load_agent("agents/math_helper.yaml"))
 print(agent.ask("What is 18% of 1240?"))
 ```
@@ -152,42 +173,38 @@ a template is a YAML file. Tests run without Ollama: `python -m pytest -q`.
 ## Project layout
 
 ```
-engine/            no UI code; everything works without Streamlit
-  llm.py           the only file that talks to Ollama
-  tools.py         tool registry (@tool), permission checks
-  toolkits/        built-in tools: basic, files, web, mail, interaction
-  permissions.py   the permission policy (capabilities, modes, scopes)
-  paths.py         project folders + always-blocked locations
-  context.py       what a running tool knows (config, grants, approvals)
-  agent.py         the agent loop (with approvals)
-  runs.py          background runs, tracking, recording
-  planner.py       capabilities, workflow diagram, plans, agent generator
-  validate.py      checks + dry run
-  verifier.py      read-only checker for "is the task really done?"
-  ledger.py        job notes: plan, checklist, evidence, notes.md
-  rules.py         rule mode: model writes a rule, code executes it
-  models.py        list / pull / delete / import models
-  config.py        AgentConfig + YAML
-  audit.py         activity log
-  credentials.py   local credential storage
-ui/                Streamlit pages
-app.py             entry point
-run.py             terminal runner
-templates/         starter agents
-agents/            your agents
-workspace/         the only folder file tools can touch
-tests/             pytest suite with a fake model (no Ollama needed)
+offline_agent/
+  engine/            no UI code; everything works without Streamlit
+    llm.py           the only file that talks to Ollama
+    agent.py         the agent loop (approvals, job notes, compaction)
+    rules.py         rule mode for files and email: model writes a rule, code executes it
+    ledger.py        job notes: plan, checklist, evidence, notes.md
+    verifier.py      read-only checker for "is the task really done?"
+    memory.py        long-term memory (SQLite + local embeddings)
+    scheduler.py     scheduled runs
+    runs.py          background runs, tracking, recording
+    permissions.py   the permission policy (capabilities, modes, scopes)
+    tools.py         tool registry (@tool)
+    toolkits/        built-in tools: files, web, feeds, mail, memory, interaction, basic
+    planner.py       capabilities, workflow diagram, plans, agent generator
+    validate.py      checks + dry run
+    paths.py         where data lives + always-blocked locations
+    models.py        list / pull / delete / import models
+  ui/                Streamlit pages
+  templates/         starter agents (shipped with the package)
+  app.py             Studio entry point
+  cli.py             the offline-agent command
+tests/               pytest suite with a fake model (no Ollama needed)
 ```
 
 New to agents? Read [docs/WALKTHROUGH.md](docs/WALKTHROUGH.md).
 
 ## Roadmap
 
-- Long-term memory (facts + run summaries, local embeddings)
-- RSS/news parsing in code (lighter news agents)
-- Rule mode for email (sort by sender/subject with code)
-- Scheduled runs
-- `pip install offline-agent`
+- Template gallery and tool plugins
+- A "tested on" table for more models and machines
+- Publish to PyPI (`pip install offline-agent`)
+- Fine-tuning small models on verified runs (Unsloth → GGUF → Models page)
 
 ## License
 
