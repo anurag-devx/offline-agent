@@ -5,7 +5,7 @@
 Build, preview, validate, run and track agents on local models with [Ollama](https://ollama.com).
 No cloud, no API keys, no accounts. Your prompts and data never go to an AI company.
 
-[![tests](https://github.com/crazzzyann/offline-agent/actions/workflows/tests.yml/badge.svg)](https://github.com/crazzzyann/offline-agent/actions/workflows/tests.yml)
+[![tests](https://github.com/anurag-devx/offline-agent/actions/workflows/tests.yml/badge.svg)](https://github.com/anurag-devx/offline-agent/actions/workflows/tests.yml)
 ![license](https://img.shields.io/badge/license-MIT-blue)
 ![python](https://img.shields.io/badge/python-3.10%2B-blue)
 
@@ -87,13 +87,13 @@ Bigger models are more reliable, smaller ones faster.
 | Model | Size | Tested on | Result |
 |---|---|---|---|
 | `qwen3.5:9b` | 6.6 GB | MacBook Air M2, 16 GB, macOS | ✅ All templates |
-| *your model here* | | | [Share your result](https://github.com/crazzzyann/offline-agent/issues/new?template=tested_on.md) |
+| *your model here* | | | [Share your result](https://github.com/anurag-devx/offline-agent/issues/new?template=tested_on.md) |
 
 ## Quick start
 
 ```bash
 # 1. Install (needs Python 3.10+ and Ollama)
-pip install git+https://github.com/crazzzyann/offline-agent.git
+pip install git+https://github.com/anurag-devx/offline-agent.git
 
 # 2. Get a model with tool calling
 ollama pull qwen3.5:9b
@@ -108,7 +108,7 @@ Your agents, runs, memory and workspace are stored in `~/OfflineAgent`
 **From source** (to change the code):
 
 ```bash
-git clone https://github.com/crazzzyann/offline-agent.git
+git clone https://github.com/anurag-devx/offline-agent.git
 cd offline-agent
 python3 -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -e ".[dev]"

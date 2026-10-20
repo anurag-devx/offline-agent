@@ -5,7 +5,7 @@ Thanks for helping make offline agents simple and accessible.
 ## Setup
 
 ```bash
-git clone https://github.com/crazzzyann/offline-agent.git
+git clone https://github.com/anurag-devx/offline-agent.git
 cd offline-agent
 python3 -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"

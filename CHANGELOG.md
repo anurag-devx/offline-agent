@@ -10,7 +10,7 @@
   (`nomic-embed-text`); Recall/Remember permissions; Memory page; poisoning warnings.
 - **Schedules**: daily / chosen days / every N minutes; in the app or `offline-agent scheduler`;
   one scheduler at a time; unattended runs deny approvals.
-- **Packaging**: `pip install git+https://github.com/crazzzyann/offline-agent.git`, the
+- **Packaging**: `pip install git+https://github.com/anurag-devx/offline-agent.git`, the
   `offline-agent` command (studio, list, run, check, scheduler, where). Data lives in the project
   folder (git checkout) or `~/OfflineAgent` (installed). Code moved into `offline_agent/`.
 

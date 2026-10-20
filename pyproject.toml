@@ -25,8 +25,8 @@ dev = ["pytest"]
 offline-agent = "offline_agent.cli:main"
 
 [project.urls]
-Homepage = "https://github.com/crazzzyann/offline-agent"
-Issues = "https://github.com/crazzzyann/offline-agent/issues"
+Homepage = "https://github.com/anurag-devx/offline-agent"
+Issues = "https://github.com/anurag-devx/offline-agent/issues"
 
 [tool.setuptools.packages.find]
 include = ["offline_agent*"]
