@@ -1,4 +1,4 @@
-from engine.agent import Agent
+from offline_agent.engine.agent import Agent
 from tests.conftest import config
 
 

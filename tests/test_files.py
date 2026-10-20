@@ -1,7 +1,7 @@
 import pytest
 
-from engine.context import ToolContext, set_context
-from engine.toolkits import files
+from offline_agent.engine.context import ToolContext, set_context
+from offline_agent.engine.toolkits import files
 from tests.conftest import config
 
 

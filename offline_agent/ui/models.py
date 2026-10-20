@@ -1,7 +1,7 @@
 """Models: see what's installed, download new ones, and import .gguf files from your computer."""
 import streamlit as st
 
-from engine import llm, models
+from offline_agent.engine import llm, models
 
 st.title("🧠 Models")
 if not llm.is_running():

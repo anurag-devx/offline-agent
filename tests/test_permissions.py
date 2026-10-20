@@ -1,6 +1,6 @@
-from engine.config import AgentConfig, load_agent
-from engine.permissions import Policy
-from engine.paths import TEMPLATES_DIR
+from offline_agent.engine.config import AgentConfig, load_agent
+from offline_agent.engine.permissions import Policy
+from offline_agent.engine.paths import TEMPLATES_DIR
 
 
 def test_full_format_round_trip():

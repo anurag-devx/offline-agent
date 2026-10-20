@@ -3,10 +3,10 @@ from datetime import time as dtime
 
 import streamlit as st
 
-from engine.config import AGENTS_DIR, ROOT, list_configs
-from engine.runs import get_manager
-from engine.scheduler import add_schedule, delete_schedule, get_scheduler, load_schedules, update_schedule
-from ui.common import STATUS
+from offline_agent.engine.config import AGENTS_DIR, ROOT, list_configs
+from offline_agent.engine.runs import get_manager
+from offline_agent.engine.scheduler import add_schedule, delete_schedule, get_scheduler, load_schedules, update_schedule
+from offline_agent.ui.common import STATUS
 
 st.title("⏰ Schedules")
 sched = get_scheduler(get_manager())
@@ -57,7 +57,7 @@ if items:
         update_schedule(s.id, enabled=not s.enabled)
         st.rerun()
     if b.button("▶ Run now"):
-        from engine.config import load_agent
+        from offline_agent.engine.config import load_agent
         run = mgr.start(load_agent(ROOT / s.agent), s.task)
         update_schedule(s.id, last_run_id=run.id, last_result="started (manual)")
         st.success("Started. See the Runs page.")

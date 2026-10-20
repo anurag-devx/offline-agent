@@ -1,4 +1,4 @@
-from engine.toolkits.web import domain_allowed
+from offline_agent.engine.toolkits.web import domain_allowed
 
 
 def test_domain_rules():

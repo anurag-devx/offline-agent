@@ -1,9 +1,9 @@
 """Runs: every agent run, live. How many are running, their status, and the full record."""
 import streamlit as st
 
-from engine.audit import read_activity
-from engine.runs import get_manager
-from ui.common import STATUS, fmt_secs, live_run
+from offline_agent.engine.audit import read_activity
+from offline_agent.engine.runs import get_manager
+from offline_agent.ui.common import STATUS, fmt_secs, live_run
 
 mgr = get_manager()
 st.title("📊 Runs")

@@ -1,8 +1,8 @@
 """Settings: email account for email agents, and what data leaves your computer."""
 import streamlit as st
 
-from engine import audit
-from engine.credentials import CRED_PATH, load_credentials, save_credentials
+from offline_agent.engine import audit
+from offline_agent.engine.credentials import CRED_PATH, load_credentials, save_credentials
 
 st.title("⚙️ Settings")
 
@@ -30,7 +30,7 @@ st.caption(f"Stored on this computer only, in `{CRED_PATH}` (readable only by yo
 
 if st.button("Test connection"):
     try:
-        from engine.toolkits.mail import _connect, list_folder_names
+        from offline_agent.engine.toolkits.mail import _connect, list_folder_names
         conn = _connect()
         names = list_folder_names(conn)
         conn.logout()

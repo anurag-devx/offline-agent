@@ -1,4 +1,4 @@
-from engine.ledger import Ledger
+from offline_agent.engine.ledger import Ledger
 
 
 def make():

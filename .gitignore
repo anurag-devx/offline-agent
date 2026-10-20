@@ -10,3 +10,6 @@ workspace/*
 .pytest_cache/
 memory/
 schedules/
+*.egg-info/
+build/
+dist/

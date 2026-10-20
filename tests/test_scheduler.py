@@ -1,10 +1,10 @@
 import time
 from datetime import datetime
 
-from engine import scheduler
-from engine.config import save_agent
-from engine.runs import RunManager
-from engine.scheduler import Schedule, next_after
+from offline_agent.engine import scheduler
+from offline_agent.engine.config import save_agent
+from offline_agent.engine.runs import RunManager
+from offline_agent.engine.scheduler import Schedule, next_after
 from tests.conftest import config
 
 
@@ -53,11 +53,14 @@ def test_unattended_denies_approvals(fake, downloads):
 
 
 def test_only_one_scheduler(fake, tmp_path, monkeypatch):
+    import json
     monkeypatch.setattr(scheduler, "SCHEDULES_DIR", tmp_path / "s")
-    a, b = scheduler.Scheduler(RunManager()), scheduler.Scheduler(RunManager())
-    a.lock_path = b.lock_path = tmp_path / "s" / "scheduler.lock"
-    monkeypatch.setattr(scheduler.os, "getpid", lambda: 111)
-    assert a.start()
-    monkeypatch.setattr(scheduler.os, "getpid", lambda: 222)
-    assert not b.start()  # another live process holds the lock
-    a.stop()
+    lock = tmp_path / "s" / "scheduler.lock"
+    lock.parent.mkdir()
+    sched = scheduler.Scheduler(RunManager())
+    sched.lock_path = lock
+    lock.write_text(json.dumps({"pid": -1, "owner": "other", "beat": time.time()}))  # live, another process
+    assert not sched.start()
+    lock.write_text(json.dumps({"pid": -1, "owner": "other", "beat": time.time() - 1000}))  # stale: dead
+    assert sched.start()
+    sched.stop()

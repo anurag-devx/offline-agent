@@ -8,15 +8,15 @@ Studio: build an agent in five steps.
 """
 import streamlit as st
 
-from engine import AgentConfig, dry_run, get_manager, is_valid, load_agent, save_agent, validate
-from engine import audit, llm
-from engine.config import AGENTS_DIR, ROOT, TEMPLATES_DIR, VerifyConfig, list_configs
-from engine.paths import is_protected, resolve_folder
-from engine.permissions import (ALLOW, ASK, CAPABILITIES, GROUPS, MODE_LABEL, OFF, RISK_ICON,
+from offline_agent.engine import AgentConfig, dry_run, get_manager, is_valid, load_agent, save_agent, validate
+from offline_agent.engine import audit, llm
+from offline_agent.engine.config import AGENTS_DIR, ROOT, TEMPLATES_DIR, VerifyConfig, list_configs
+from offline_agent.engine.paths import is_protected, resolve_folder
+from offline_agent.engine.permissions import (ALLOW, ASK, CAPABILITIES, GROUPS, MODE_LABEL, OFF, RISK_ICON,
                                 EmailPolicy, FilePolicy, InteractionPolicy, InternetPolicy, MemoryPolicy, Policy)
-from engine.planner import capabilities_summary, generate_agent, plan_task, workflow_dot
-from engine.tools import tools_for
-from ui.common import live_run, render_event
+from offline_agent.engine.planner import capabilities_summary, generate_agent, plan_task, workflow_dot
+from offline_agent.engine.tools import tools_for
+from offline_agent.ui.common import live_run, render_event
 
 ss = st.session_state
 mgr = get_manager()
@@ -338,9 +338,9 @@ with tabs[4]:
     st.markdown("An agent is just its YAML file. Anything that can read the file can run the agent.")
     st.markdown("**1. In this app**: the Run tab, tracked on the Runs page.")
     st.markdown("**2. In the terminal** (approvals and questions are asked in the terminal, also recorded):")
-    st.code(f"python run.py {rel}", language="bash")
+    st.code(f"offline-agent run {saved_path}", language="bash")
     st.markdown("**3. In your own Python code:**")
-    st.code("from engine import Agent, load_agent\n\n"
+    st.code("from offline_agent.engine import Agent, load_agent\n\n"
             f'agent = Agent(load_agent("{rel}"))\n'
             'print(agent.ask("Hello!"))', language="python")
     st.markdown("**4. Share it**: send the YAML file to anyone running this project.")

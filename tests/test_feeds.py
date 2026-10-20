@@ -2,8 +2,8 @@ from datetime import datetime, timedelta
 
 import pytest
 
-from engine.context import ToolContext, set_context
-from engine.toolkits import feeds
+from offline_agent.engine.context import ToolContext, set_context
+from offline_agent.engine.toolkits import feeds
 from tests.conftest import config
 
 NOW = datetime.now().astimezone()

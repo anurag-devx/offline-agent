@@ -5,8 +5,8 @@ import json
 
 import streamlit as st
 
-from engine.ledger import Ledger
-from engine.runs import get_manager
+from offline_agent.engine.ledger import Ledger
+from offline_agent.engine.runs import get_manager
 
 STATUS = {
     "running": "🔄 running", "waiting_approval": "✋ needs your OK", "waiting_input": "💬 needs your answer", "verifying": "🔍 verifying",

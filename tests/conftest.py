@@ -52,7 +52,7 @@ def fake(monkeypatch, tmp_path):
     monkeypatch.setattr(ollama, "list", lambda: ListResponse(models=[ListResponse.Model(model="test-model")]))
     monkeypatch.setattr(ollama, "show", lambda m: type("Info", (), {"capabilities": ["completion", "tools"],
                                                                   "modelinfo": {"x.context_length": 32768}})())
-    from engine import audit, llm, memory, runs
+    from offline_agent.engine import audit, llm, memory, runs
     monkeypatch.setattr(memory, "_store", memory.MemoryStore(tmp_path / "memory.db"))
     vocab = {}
 
@@ -85,7 +85,7 @@ def downloads():
 
 def config(**kw):
     """An AgentConfig with sensible test defaults."""
-    from engine.config import AgentConfig
-    from engine.permissions import Policy
+    from offline_agent.engine.config import AgentConfig
+    from offline_agent.engine.permissions import Policy
     perms = kw.pop("permissions", None) or {}
     return AgentConfig(model="test-model", permissions=Policy.from_dict(perms), **kw)

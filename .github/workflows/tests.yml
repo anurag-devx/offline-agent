@@ -17,3 +17,8 @@ jobs:
           python-version: ${{ matrix.python }}
       - run: pip install -r requirements.txt pytest
       - run: python -m pytest -q tests
+      - name: Install as a package and run the command
+        run: |
+          pip install .
+          offline-agent --help
+          offline-agent list

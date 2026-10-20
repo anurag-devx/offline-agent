@@ -10,7 +10,7 @@ from pathlib import Path
 
 import yaml
 
-from .paths import AGENTS_DIR, ROOT, TEMPLATES_DIR, WORKSPACE  # noqa: F401 (re-exported)
+from .paths import AGENTS_DIR, PKG_DIR, ROOT, TEMPLATES_DIR, WORKSPACE  # noqa: F401 (re-exported)
 from .permissions import Policy
 
 

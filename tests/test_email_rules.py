@@ -3,7 +3,7 @@ import re
 
 import pytest
 
-from engine.rules import EmailRuleAgent, make_agent
+from offline_agent.engine.rules import EmailRuleAgent, make_agent
 from tests.conftest import config
 
 MAILS = {"INBOX": [("101", "Amazon <ship@amazon.in>", "Your order shipped", False),
@@ -62,7 +62,7 @@ class FakeIMAP:
 
 @pytest.fixture
 def mailbox(monkeypatch):
-    import engine.toolkits.mail as mail
+    import offline_agent.engine.toolkits.mail as mail
     monkeypatch.setattr(imaplib, "IMAP4_SSL", FakeIMAP)
     monkeypatch.setattr(mail, "load_credentials", lambda: {"email": {"address": "me@x.com", "password": "p"}})
     MAILS.clear()

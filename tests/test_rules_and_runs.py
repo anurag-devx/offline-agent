@@ -1,7 +1,7 @@
 import time
 
-from engine.rules import RuleAgent
-from engine.runs import RunManager
+from offline_agent.engine.rules import RuleAgent
+from offline_agent.engine.runs import RunManager
 from tests.conftest import config
 
 

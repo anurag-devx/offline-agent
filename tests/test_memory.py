@@ -1,9 +1,9 @@
 import time
 
-from engine import memory
-from engine.validate import validate
-from engine.agent import Agent
-from engine.runs import RunManager
+from offline_agent.engine import memory
+from offline_agent.engine.validate import validate
+from offline_agent.engine.agent import Agent
+from offline_agent.engine.runs import RunManager
 from tests.conftest import config
 
 

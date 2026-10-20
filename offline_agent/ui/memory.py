@@ -1,7 +1,7 @@
 """Memory: everything agents remember, stored on this computer. View, search, add, edit, delete."""
 import streamlit as st
 
-from engine.memory import EMBED_MODEL, get_store
+from offline_agent.engine.memory import EMBED_MODEL, get_store
 
 st.title("🧠 Memory")
 store = get_store()

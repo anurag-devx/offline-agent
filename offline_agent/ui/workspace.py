@@ -7,8 +7,8 @@ from pathlib import Path
 import streamlit as st
 import streamlit.components.v1 as components
 
-from engine import audit
-from engine.config import WORKSPACE
+from offline_agent.engine import audit
+from offline_agent.engine.config import WORKSPACE
 
 st.title("📁 Workspace")
 st.caption(f"Agents can read and write only inside `{WORKSPACE}`.")
