@@ -1,0 +1,10 @@
+name: General Assistant
+description: Plain chat. No access to files, internet or email.
+model: qwen3.5:9b
+system_prompt: |
+  You are a helpful, concise assistant. Answer clearly in a few sentences.
+permissions:
+  interaction: {ask_user: 'off'}
+max_steps: 3
+temperature: 0.5
+plan_steps: false

@@ -1,0 +1,6 @@
+Welcome to offline-agent.
+
+This is the workspace folder. Agents with file tools can only read and write
+files inside this folder, nowhere else on your computer.
+
+Try asking the File Helper agent: "Summarize welcome.txt".

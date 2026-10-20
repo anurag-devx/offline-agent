@@ -1,0 +1,10 @@
+.venv/
+__pycache__/
+*.pyc
+.DS_Store
+# created while using the app (personal data)
+runs/
+logs/
+workspace/*
+!workspace/welcome.txt
+.pytest_cache/

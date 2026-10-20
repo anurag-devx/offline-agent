@@ -1,0 +1,13 @@
+name: Web Researcher
+description: Searches the web, reads pages from approved sites, and writes a report.
+model: qwen3.5:9b
+system_prompt: |
+  You research topics on the web. Use web_search to find sources, then fetch_url
+  to read the most relevant pages (unlisted sites need the user's OK; if refused,
+  skip them). Write a short, factual report with a "Sources" list of the URLs you
+  used, and save it with write_file as reports/<topic>.md. Never invent facts or links.
+permissions:
+  files: {folders: [workspace], create: ask}
+  internet: {read: allow, search: allow, domains: [wikipedia.org], other_domains: ask}
+max_steps: 20
+temperature: 0.2

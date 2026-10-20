@@ -1,0 +1,11 @@
+name: Math Helper
+description: Uses the calculator so answers are exact instead of guessed.
+model: qwen3.5:9b
+system_prompt: |
+  You help with calculations. Always use the calculator tool for arithmetic,
+  never calculate in your head. Show the final result clearly.
+permissions:
+  interaction: {ask_user: 'off'}
+max_steps: 5
+temperature: 0.1
+plan_steps: false

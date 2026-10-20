@@ -1,0 +1,81 @@
+"""
+Test setup. No Ollama needed: a fake model plays back scripted replies.
+
+Every test gets a temporary HOME (so file tools never touch your real folders) and
+temporary runs/ and logs/ folders (so tests never write into the project).
+"""
+import json
+import os
+import sys
+import tempfile
+from pathlib import Path
+
+_HOME = tempfile.mkdtemp(prefix="oa-home-")
+os.environ["HOME"] = _HOME  # must happen before engine is imported (paths.HOME)
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+import ollama  # noqa: E402
+import pytest  # noqa: E402
+from ollama import ChatResponse, ListResponse, Message  # noqa: E402
+
+
+class FakeModel:
+    """script: list of replies. Each is "text" (an answer) or [(tool, args), ...] (tool calls).
+    format_replies: {schema property name: dict} for structured calls (plan, rule, verdict)."""
+
+    def __init__(self):
+        self.script, self.format_replies, self.calls = [], {}, []
+
+    def chat(self, model, messages, tools=None, stream=False, format=None, **kw):
+        self.calls.append({"messages": list(messages), "format": format, "options": kw.get("options")})
+        if format:
+            for key, reply in self.format_replies.items():
+                if key in format.get("properties", {}):
+                    value = reply() if callable(reply) else reply
+                    return ChatResponse(model=model, prompt_eval_count=10, eval_count=5,
+                                        message=Message(role="assistant", content=json.dumps(value)))
+            raise AssertionError(f"no fake reply for schema {list(format.get('properties', {}))}")
+        reply = self.script.pop(0) if self.script else "done"
+        if isinstance(reply, str):
+            msg = Message(role="assistant", content=reply)
+        else:
+            msg = Message(role="assistant", content="", tool_calls=[
+                Message.ToolCall(function=Message.ToolCall.Function(name=n, arguments=a)) for n, a in reply])
+        return ChatResponse(model=model, prompt_eval_count=10, eval_count=5, message=msg)
+
+
+@pytest.fixture
+def fake(monkeypatch, tmp_path):
+    model = FakeModel()
+    monkeypatch.setattr(ollama, "chat", model.chat)
+    monkeypatch.setattr(ollama, "list", lambda: ListResponse(models=[ListResponse.Model(model="test-model")]))
+    monkeypatch.setattr(ollama, "show", lambda m: type("Info", (), {"capabilities": ["completion", "tools"],
+                                                                  "modelinfo": {"x.context_length": 32768}})())
+    from engine import audit, llm, runs
+    llm.capabilities.cache_clear()
+    llm.context_limit.cache_clear()
+    monkeypatch.setattr(runs, "RUNS_DIR", tmp_path / "runs")
+    monkeypatch.setattr(audit, "LOG_FILE", tmp_path / "logs" / "activity.jsonl")
+    return model
+
+
+@pytest.fixture
+def downloads():
+    """A fresh ~/Downloads in the temporary HOME."""
+    import shutil
+    d = Path(_HOME) / "Downloads"
+    shutil.rmtree(d, ignore_errors=True)
+    d.mkdir()
+    for name in ("a.pdf", "b.pdf", "photo.jpg", "notes.docx", "song.mp3"):
+        (d / name).write_text("x")
+    (d / "sub").mkdir()
+    (d / "sub" / "deep.pdf").write_text("x")
+    return d
+
+
+def config(**kw):
+    """An AgentConfig with sensible test defaults."""
+    from engine.config import AgentConfig
+    from engine.permissions import Policy
+    perms = kw.pop("permissions", None) or {}
+    return AgentConfig(model="test-model", permissions=Policy.from_dict(perms), **kw)

@@ -1,0 +1,13 @@
+name: Note Taker
+description: Saves timestamped notes in workspace/notes.md and reads them back.
+model: qwen3.5:9b
+system_prompt: |
+  You are a note-taking assistant. When the user asks you to remember or note
+  something, save it with append_note. When they ask what they noted, read
+  notes.md with read_file and summarize it.
+permissions:
+  files: {folders: [workspace], read: allow, modify: allow}
+  interaction: {ask_user: 'off'}
+max_steps: 5
+temperature: 0.2
+plan_steps: false
