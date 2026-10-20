@@ -21,6 +21,7 @@ import uuid
 from .context import ToolContext, set_context
 from .ledger import Ledger
 from .llm import chat
+from .memory import recall_block
 from .permissions import ASK
 from .tools import (get_schemas, internal_tools, is_internal, permission_of, preview_tool, run_tool,
                     tools_for)
@@ -110,7 +111,14 @@ class Agent:
             names = names + internal_tools()
         schemas = get_schemas(names)
         ctx = ToolContext(cfg, self.state, approver=self._approve, asker=self.asker)
+        ctx.job = self.job_id
         set_context(ctx)
+        if len(self.messages) == 1:  # first turn: add relevant notes from memory
+            block, hits = recall_block(cfg, user_input)
+            if block:
+                self._add({"role": "user", "content": block}, None)
+                yield {"type": "recalled", "items": [{"id": h["id"], "text": h["text"][:120],
+                                                      "score": h["score"]} for h in hits], "step": 0}
         self._add({"role": "user", "content": user_input}, None)
 
         if notes_on:

@@ -91,6 +91,15 @@ def validate(cfg):
                              "contact websites freely. Set internet to 'Ask first' so nothing private can "
                              "leave without your OK.", "warning"))
 
+    if on("memory.read") or on("memory.write") or pol.memory.run_summaries:
+        from .memory import EMBED_MODEL
+        has_embed = running and any(m.startswith(EMBED_MODEL) for m in _all_models())
+        checks.append(_check("Memory search", has_embed, f"Keyword search only. For search by meaning: "
+                             f"`ollama pull {EMBED_MODEL}`.", "warning"))
+        if pol.mode("memory.write") == ALLOW and (on("internet.read") or on("email.read") or on("files.read")):
+            checks.append(_check("Memory poisoning", False, "This agent reads outside content and can save notes "
+                                 "without asking; a web page or file could plant a note. Set Remember to "
+                                 "'Ask first'.", "warning"))
     if cfg.context_length < 8192 and tools_for(cfg):
         checks.append(_check("Context length", False, "Below 8,192 tokens, tool results (like a folder list) "
                              "can push the instructions out of the model's memory.", "warning"))
@@ -107,6 +116,15 @@ def validate(cfg):
     checks.append(_check("Max steps", 1 <= cfg.max_steps <= 100, "Should be between 1 and 100."))
     checks.append(_check("Temperature", 0 <= cfg.temperature <= 2, "Should be between 0 and 2."))
     return checks
+
+
+def _all_models():
+    """All installed models, including embedding models (list_models hides those)."""
+    try:
+        import ollama
+        return [m.model for m in ollama.list().models]
+    except Exception:
+        return []
 
 
 def is_valid(checks):

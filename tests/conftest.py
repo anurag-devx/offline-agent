@@ -52,7 +52,16 @@ def fake(monkeypatch, tmp_path):
     monkeypatch.setattr(ollama, "list", lambda: ListResponse(models=[ListResponse.Model(model="test-model")]))
     monkeypatch.setattr(ollama, "show", lambda m: type("Info", (), {"capabilities": ["completion", "tools"],
                                                                   "modelinfo": {"x.context_length": 32768}})())
-    from engine import audit, llm, runs
+    from engine import audit, llm, memory, runs
+    monkeypatch.setattr(memory, "_store", memory.MemoryStore(tmp_path / "memory.db"))
+    vocab = {}
+
+    def fake_embed(model, input):  # bag-of-words vectors: shared words = similar meaning
+        vec = [0.0] * 64
+        for w in memory._words(input):
+            vec[vocab.setdefault(w, len(vocab) % 64)] += 1.0
+        return {"embeddings": [vec]}
+    monkeypatch.setattr(ollama, "embed", fake_embed)
     llm.capabilities.cache_clear()
     llm.context_limit.cache_clear()
     monkeypatch.setattr(runs, "RUNS_DIR", tmp_path / "runs")

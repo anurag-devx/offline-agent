@@ -58,6 +58,11 @@ def capabilities_summary(cfg):
         notes.append("Web searches are sent to DuckDuckGo.")
     if pol.mode("internet.read") == OFF and pol.mode("internet.search") == OFF:
         notes.append("No internet access.")
+    if pol.mode("memory.read") != OFF or pol.mode("memory.write") != OFF or pol.memory.run_summaries:
+        notes.append("Memory: " + ("shared" if pol.memory.shared else "its own") + " notes on this computer"
+                     + (f"; {pol.memory.recall} relevant notes recalled at the start" if pol.mode("memory.read") != OFF
+                        and pol.memory.recall else "")
+                     + ("; code saves a summary after each run" if pol.memory.run_summaries else "") + ".")
     if pol.mode("email.read") != OFF or pol.mode("email.organize") != OFF:
         notes.append("Mail folders: " + (", ".join(pol.email.folders) or "all")
                      + ". Mail goes only to your mail server; no send or delete tools exist.")
@@ -87,6 +92,7 @@ def workflow_dot(cfg):
         "internet": ("res_web", "cylinder", "Sites\\n" + "\\n".join(pol.internet.domains[:5] or ["(none listed)"])
                      + ("\\n+ ones you allow" if pol.internet.other_domains == "ask" else "")),
         "email": ("res_mail", "cylinder", "Your mail server"),
+        "memory": ("res_mem", "cylinder", "Memory\\n(on this computer)"),
         "interaction": ("you", None, None),
     }
     used = set()

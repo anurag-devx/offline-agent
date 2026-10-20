@@ -18,6 +18,7 @@ pages = st.navigation([
     st.Page("ui/studio.py", title="Studio", icon="🛠", default=True),
     st.Page("ui/runs.py", title="Runs", icon="📊"),
     st.Page("ui/workspace.py", title="Workspace", icon="📁"),
+    st.Page("ui/memory.py", title="Memory", icon="🧠"),
     st.Page("ui/models.py", title="Models", icon="🧠"),
     st.Page("ui/settings.py", title="Settings", icon="⚙️"),
 ])

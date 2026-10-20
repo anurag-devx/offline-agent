@@ -17,7 +17,7 @@ MODE_LABEL = {OFF: "Off", ALLOW: "Allow", ASK: "Ask first"}
 RISK_ICON = {"low": "🟢", "medium": "🟡", "high": "🔴"}
 
 GROUPS = {"files": "📁 Files & folders", "internet": "🌐 Internet",
-          "email": "✉️ Email", "interaction": "💬 Interaction"}
+          "email": "✉️ Email", "memory": "🧠 Memory", "interaction": "💬 Interaction"}
 
 CAPABILITIES = {
     "files.read":   {"label": "Read", "risk": "low", "detail": "List folders and read files."},
@@ -29,6 +29,8 @@ CAPABILITIES = {
     "internet.search": {"label": "Web search", "risk": "medium", "detail": "Search DuckDuckGo. Your search words are sent to DuckDuckGo."},
     "email.read":     {"label": "Read email", "risk": "medium", "detail": "Read your mailbox over IMAP, without marking mail read."},
     "email.organize": {"label": "Organize email", "risk": "high", "detail": "Move emails between folders/labels, mark read. Never sends or deletes."},
+    "memory.read":  {"label": "Recall", "risk": "low", "detail": "Look up notes from earlier runs (stored on this computer)."},
+    "memory.write": {"label": "Remember", "risk": "medium", "detail": "Save notes for future runs. Notes are shown to the agent later, so 'Ask first' is safest."},
     "interaction.ask_user": {"label": "Ask you questions", "risk": "low", "detail": "Pause and ask you something (e.g. which folder to use)."},
 }
 
@@ -79,12 +81,21 @@ class EmailPolicy:
 
 
 @dataclass
+class MemoryPolicy:
+    read: str = OFF
+    write: str = OFF
+    recall: int = 5             # notes auto-added at the start of a run (0 = only via the recall tool)
+    run_summaries: bool = False # after each run, code saves a one-line summary
+    shared: bool = False        # use the shared memory instead of this agent's own
+
+
+@dataclass
 class InteractionPolicy:
     ask_user: str = ALLOW
 
 
-_GROUP_CLASSES = {"files": FilePolicy, "internet": InternetPolicy,
-                  "email": EmailPolicy, "interaction": InteractionPolicy}
+_GROUP_CLASSES = {"files": FilePolicy, "internet": InternetPolicy, "email": EmailPolicy,
+                  "memory": MemoryPolicy, "interaction": InteractionPolicy}
 
 # Old flat format (v0.2) -> new capabilities
 _LEGACY = {"files_read": ["files.read"], "files_write": ["files.create", "files.modify"],
@@ -96,6 +107,7 @@ class Policy:
     files: FilePolicy = field(default_factory=FilePolicy)
     internet: InternetPolicy = field(default_factory=InternetPolicy)
     email: EmailPolicy = field(default_factory=EmailPolicy)
+    memory: MemoryPolicy = field(default_factory=MemoryPolicy)
     interaction: InteractionPolicy = field(default_factory=InteractionPolicy)
 
     def mode(self, cap):
@@ -147,8 +159,8 @@ class Policy:
                     v = [str(x).strip() for x in (v or []) if str(x).strip()]
                     if f.name == "file_types":
                         v = [x.lower() if x.startswith(".") else "." + x.lower() for x in v]
-                elif f.name == "max_changes":
-                    v = max(1, int(v or 1))
+                elif f.type is int:
+                    v = max(0 if f.name == "recall" else 1, int(v or 0))
                 else:
                     v = bool(v)
                 setattr(obj, f.name, v)

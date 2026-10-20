@@ -134,4 +134,4 @@ def _coerce(fn, args):
 
 
 # Register the built-in tools (they import `tool` from this module).
-from .toolkits import basic, feeds, files, interaction, ledger_tools, mail, web  # noqa: E402,F401
+from .toolkits import basic, feeds, files, interaction, ledger_tools, mail, memory_tools, web  # noqa: E402,F401

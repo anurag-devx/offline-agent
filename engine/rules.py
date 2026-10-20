@@ -16,6 +16,7 @@ import uuid
 from . import llm
 from .context import ToolContext, set_context
 from .ledger import Ledger
+from .memory import recall_block
 from .permissions import ASK, OFF
 from .toolkits import files
 
@@ -119,7 +120,12 @@ class RuleAgent:
             return
 
         # ---- 1. the model writes the rule (the only model call)
-        messages = [{"role": "system", "content": PROMPT.format(kinds=", ".join(KINDS), defaults=cfg.system_prompt)},
+        memory, hits = recall_block(cfg, user_input)
+        if hits:
+            yield {"type": "recalled", "items": [{"id": h["id"], "text": h["text"][:120], "score": h["score"]}
+                                                 for h in hits], "step": 1}
+        messages = [{"role": "system", "content": PROMPT.format(kinds=", ".join(KINDS), defaults=cfg.system_prompt)
+                     + (f"\n\n{memory}" if memory else "")},
                     {"role": "user", "content": user_input}]
         answer = ""
         try:
@@ -297,7 +303,12 @@ class EmailRuleAgent(RuleAgent):
         yield {"type": "ledger", "ledger": led.to_dict(), "step": 0}
 
         # ---- 1. the model writes the rules (the only model call)
-        messages = [{"role": "system", "content": EMAIL_PROMPT.format(defaults=cfg.system_prompt)},
+        memory, hits = recall_block(cfg, user_input)
+        if hits:
+            yield {"type": "recalled", "items": [{"id": h["id"], "text": h["text"][:120], "score": h["score"]}
+                                                 for h in hits], "step": 1}
+        messages = [{"role": "system", "content": EMAIL_PROMPT.format(defaults=cfg.system_prompt)
+                     + (f"\n\n{memory}" if memory else "")},
                     {"role": "user", "content": user_input}]
         try:
             spec, event = self._ask_email_model(messages)

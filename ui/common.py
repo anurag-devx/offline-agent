@@ -76,6 +76,11 @@ def render_event(e):
     elif t == "file_op":
         detail = f"{e.get('src', '')} → {e['dst']}" if e["op"] == "move" else (e.get("dst") or e.get("src"))
         st.caption(f"📁 {OP_LABEL.get(e['op'], e['op'])}: {detail}")
+    elif t == "recalled":
+        st.caption("🧠 Recalled from memory: " + " · ".join(f"#{i['id']} {i['text'][:60]}" for i in e["items"]))
+    elif t == "memory_op":
+        what = {"add": "remembered", "delete": "forgot", "summary": "saved run summary as"}.get(e["op"], e["op"])
+        st.caption(f"🧠 {what} note #{e['id']}" + (f": {e['text']}" if e.get("text") else ""))
     elif t == "email_op":
         st.caption(f"✉️ moved email {e['uid']}: {e['from_folder']} → {e['to_folder']}")
     elif t == "network":

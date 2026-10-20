@@ -23,6 +23,7 @@ class ToolContext:
         self.asker = asker
         self.events = []
         self.ledger = None          # job notes, when the agent uses them
+        self.job = ""               # job id, so memory notes can point back to their run
 
     def record(self, kind, **data):
         self.events.append({"type": kind, "time": datetime.now().isoformat(timespec="seconds"), **data})

@@ -13,7 +13,7 @@ from engine import audit, llm
 from engine.config import AGENTS_DIR, ROOT, TEMPLATES_DIR, VerifyConfig, list_configs
 from engine.paths import is_protected, resolve_folder
 from engine.permissions import (ALLOW, ASK, CAPABILITIES, GROUPS, MODE_LABEL, OFF, RISK_ICON,
-                                EmailPolicy, FilePolicy, InteractionPolicy, InternetPolicy, Policy)
+                                EmailPolicy, FilePolicy, InteractionPolicy, InternetPolicy, MemoryPolicy, Policy)
 from engine.planner import capabilities_summary, generate_agent, plan_task, workflow_dot
 from engine.tools import tools_for
 from ui.common import live_run, render_event
@@ -167,6 +167,19 @@ with tabs[0]:
             st.caption("Set up your account on the Settings page.")
 
     with st.container(border=True):
+        st.markdown(f"**{GROUPS['memory']}**")
+        mem = MemoryPolicy(read=mode_row("memory.read", pol.memory.read),
+                           write=mode_row("memory.write", pol.memory.write))
+        a, b, c = st.columns(3)
+        mem.recall = int(a.number_input("Notes recalled at start", 0, 20, pol.memory.recall, key=k("m_recall"),
+                                        help="Relevant notes added when a run starts (0 = only via the recall tool).",
+                                        disabled=mem.read == OFF))
+        mem.run_summaries = b.checkbox("Save a summary of each run", pol.memory.run_summaries, key=k("m_sum"),
+                                       help="Written by code from recorded facts, never by the model.")
+        mem.shared = c.checkbox("Use shared memory", pol.memory.shared, key=k("m_shared"),
+                                help="Off = this agent has its own memory.")
+
+    with st.container(border=True):
         st.markdown(f"**{GROUPS['interaction']}**")
         talk = InteractionPolicy(ask_user=mode_row("interaction.ask_user", pol.interaction.ask_user, (OFF, ALLOW)))
 
@@ -210,7 +223,7 @@ with tabs[0]:
                                            format_func=lambda m: m or "same as agent", key=k("v_model"))
 
     cfg = AgentConfig(name=name, description=description, model=model, system_prompt=system_prompt,
-                      permissions=Policy(files=files, internet=net, email=mail, interaction=talk),
+                      permissions=Policy(files=files, internet=net, email=mail, memory=mem, interaction=talk),
                       max_steps=max_steps, temperature=temperature, think=think,
                       context_length=int(context_length), verify=verify_cfg, mode=mode,
                       plan_steps=plan_steps, terse=terse, max_reply_tokens=max_reply)

@@ -216,6 +216,14 @@ class RunManager:
             run.status = "running"
         run.status, run.pending, run.ended = final, None, _now()
         self._save(run)
+        if cfg.permissions.memory.run_summaries:
+            try:
+                from .memory import get_store, run_summary, scope_of
+                mid = get_store().add(scope_of(cfg), run_summary(run, Ledger.from_dict(run.ledger) if run.ledger
+                                                                 else None), kind="episode", run=rid)
+                self._record(run, {"type": "memory_op", "op": "summary", "id": mid})
+            except Exception as ex:
+                self._record(run, {"type": "warning", "content": f"Could not save the run summary: {ex}"})
         audit.log("run_finished", run=rid, status=final, steps=run.steps, tool_calls=run.tool_calls,
                   file_changes=run.file_changes, verified=run.verified, attempts=run.attempts)
 
