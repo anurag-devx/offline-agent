@@ -9,3 +9,4 @@ workspace/*
 !workspace/welcome.txt
 .pytest_cache/
 memory/
+schedules/

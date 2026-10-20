@@ -11,6 +11,7 @@ import streamlit as st
 
 from engine import llm
 from engine.runs import get_manager
+from engine.scheduler import get_scheduler
 
 st.set_page_config(page_title="Offline Agent Studio", page_icon="🤖", layout="wide")
 
@@ -19,9 +20,13 @@ pages = st.navigation([
     st.Page("ui/runs.py", title="Runs", icon="📊"),
     st.Page("ui/workspace.py", title="Workspace", icon="📁"),
     st.Page("ui/memory.py", title="Memory", icon="🧠"),
+    st.Page("ui/schedules.py", title="Schedules", icon="⏰"),
     st.Page("ui/models.py", title="Models", icon="🧠"),
     st.Page("ui/settings.py", title="Settings", icon="⚙️"),
 ])
+
+
+get_scheduler(get_manager()).start()  # runs schedules while the app is open (no-op if already running)
 
 
 @st.fragment(run_every=3)

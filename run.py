@@ -4,6 +4,7 @@ run.py: run any agent from the terminal. Runs are recorded in runs/ just like in
   python run.py                              list agents and templates
   python run.py agents/math_helper.yaml      chat with an agent
   python run.py agents/x.yaml --check        validate only
+  python run.py --scheduler                  run schedules without the app (Ctrl+C to stop)
 """
 import argparse
 import json
@@ -103,11 +104,42 @@ def chat(cfg):
         print(f"{GREY}{run.file_changes} file changes. Notes: runs/{run.id}/notes.md{RESET}")
 
 
+def headless_scheduler():
+    """Run schedules in this terminal. Nobody is watching, so 'Ask first' actions are denied."""
+    from engine.scheduler import get_scheduler, load_schedules
+    mgr = get_manager(unattended=True)
+    sched = get_scheduler(mgr, owner="headless")
+    if not sched.start():
+        print(f"{RED}Schedules are already being run by another process ({sched.status()}).{RESET}")
+        return
+    items = [s for s in load_schedules() if s.enabled]
+    print(f"Running {len(items)} schedule(s). 'Ask first' actions are denied automatically. Ctrl+C to stop.")
+    for s in items:
+        print(f"  {s.name}: {s.describe()} · next {s.next_run.replace('T', ' ')}")
+    seen = {}
+    try:
+        while True:
+            for run in mgr.list():
+                if seen.get(run.id) != run.status:
+                    seen[run.id] = run.status
+                    print(f"{GREY}[{run.started[11:16]}] {run.agent}: {run.status}{RESET}"
+                          + (f" · {run.answer.splitlines()[0][:80]}" if not run.active and run.answer else ""))
+            time.sleep(2)
+    except KeyboardInterrupt:
+        sched.stop()
+        print("\nStopped.")
+
+
 def main():
     parser = argparse.ArgumentParser(description="Run an offline agent.")
     parser.add_argument("config", nargs="?", help="Path to an agent YAML file")
     parser.add_argument("--check", action="store_true", help="Only validate the agent")
+    parser.add_argument("--scheduler", action="store_true", help="Run schedules without the app")
     args = parser.parse_args()
+
+    if args.scheduler:
+        headless_scheduler()
+        return
 
     if not args.config:
         for label, folder in (("Agents", AGENTS_DIR), ("Templates", TEMPLATES_DIR)):

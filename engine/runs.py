@@ -78,7 +78,8 @@ class Run:
 
 
 class RunManager:
-    def __init__(self):
+    def __init__(self, unattended=False):
+        self.unattended = unattended  # True = nobody is watching (headless scheduler)
         self.runs = {}
         self._lock = threading.Lock()
         self._agents, self._stops, self._decisions = {}, {}, {}
@@ -296,6 +297,12 @@ class RunManager:
         """Called from the agent's thread. Blocks until you answer in the UI (or Stop).
         A threading.Event is a flag one thread waits on and another thread sets."""
         run = self.runs[rid]
+        if self.unattended:  # nobody can answer: deny / no answer, and say so in the log
+            self._record(run, {"type": "warning", "content": f"Unattended run: '{pending.get('name') or 'question'}' "
+                                                             "was denied automatically (no one to approve)."})
+            if pending["kind"] == "question":
+                return "(No one is available to answer: this is an unattended scheduled run. Use your best judgment.)"
+            return default
         decision = {"event": threading.Event(), "value": default}
         self._decisions[rid] = decision
         run.pending = pending
@@ -344,10 +351,10 @@ _manager = None
 _manager_lock = threading.Lock()
 
 
-def get_manager():
+def get_manager(unattended=False):
     """One RunManager per app process, shared by every page and browser tab."""
     global _manager
     with _manager_lock:
         if _manager is None:
-            _manager = RunManager()
+            _manager = RunManager(unattended=unattended)
         return _manager
