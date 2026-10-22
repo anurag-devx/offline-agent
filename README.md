@@ -63,6 +63,9 @@ max_steps: 80
 | **News feeds** | `read_feed` parses RSS/Atom in code: one line per headline, filtered by keyword and date |
 | **Memory** | Notes and run summaries stored on your computer, searched by meaning (local `nomic-embed-text`). Recall/Remember permissions; notes are shown as information, never instructions |
 | **Schedules** | Run agents every day at a time or every N minutes, in the app or headless (`offline-agent scheduler`) |
+| **Triage + Relay** | Triage sends simple tasks to the main agent and big ones to Relay: a PM agent splits the job into small chunks with a shared contract, a fresh worker builds each chunk, code checks every chunk, and the PM pulls it back together and has it reviewed. Long jobs save their progress and resume after a stop or restart |
+| **Test Bench** | Sandboxed tests for every agent, checked in code and scored; compare models and settings side by side |
+| **Speed features** | Stopwatch (where the time goes), Token Meter, Telegram style for machine talk, Full Voice for answers you read |
 | **Verification** | Optional read-only verifier checks the real state when the agent says "done". Not done → the agent is told what's missing and continues (up to N rounds, or until you press Stop) |
 | **File safety** | Never overwrites (clashes get `_1`), delete goes to the Trash, every file change logged (CSV), **Undo** for moves |
 | **Everything recorded** | Each run's config, every step, tool call, web request and approval in `runs/`; app activity in `logs/` |
@@ -291,8 +294,11 @@ New to agents? Read [docs/WALKTHROUGH.md](docs/WALKTHROUGH.md).
 
 ## Roadmap
 
+- Real-browser click tests for websites the agents build (cart, forms, filters)
+- Cascade: a small model first, a bigger one only when a check fails
+- Offline Coder: a coding agent (edit a repo, run tests, git checkpoints) on the same engine
 - Template gallery and tool plugins
-- A "tested on" table for more models and machines
+- More models and machines in the "tested on" table
 - Publish to PyPI (`pip install offline-agent`)
 - Fine-tuning small models on verified runs (Unsloth → GGUF → Models page)
 

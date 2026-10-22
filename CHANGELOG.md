@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.3.0 (2026-10-23)
 
 - **Triage**: rates each task (code signals first, the model only when unclear) and sends simple
   tasks to the main agent and complex ones to Relay. Per agent: `route: auto | single | relay`
@@ -10,7 +10,6 @@
   resume after a stop or restart (`offline-agent resume`, ▶ Resume in the run view); time limit per
   agent (`time_limit_min`, default 180)
 - Bench: `--route main,relay,triage`
-
 - Job notes: code keeps an "ALREADY MADE" list of files the job created, so the agent no longer
   redoes finished work after old messages are trimmed; duplicate open steps aren't added twice
 - Bench checks can read several files together (e.g. a menu built by script.js counts)
