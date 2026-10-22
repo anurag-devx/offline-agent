@@ -166,11 +166,12 @@ def run_case(manager, cfg, case, sandbox, should_stop=lambda: False, timeout=TIM
 # ---------------------------------------------------------------- a job: many cases
 
 class BenchJob:
-    def __init__(self, manager, agents, models=("",), variants=("Telegram on",), internet=False, email=False):
+    def __init__(self, manager, agents, models=("",), variants=("Telegram on",), internet=False, email=False,
+                 timeout=TIMEOUT):
         self.manager = manager
         self.id = datetime.now().strftime("%Y%m%d-%H%M%S")
         self.agents, self.models, self.variants = list(agents), list(models) or [""], list(variants) or [""]
-        self.internet, self.email = internet, email
+        self.internet, self.email, self.timeout = internet, email, timeout
         self.results, self.current, self.done = [], "", False
         self.total = len(self.agents) * len(self.models) * len(self.variants)
         self._stop = threading.Event()
@@ -210,7 +211,7 @@ class BenchJob:
                         continue
                     sandbox = SANDBOX_DIR / self.id / f"{n:02d}"
                     try:
-                        self.results.append({**row, **run_case(self.manager, cfg, case, sandbox, self._stop.is_set)})
+                        self.results.append({**row, **run_case(self.manager, cfg, case, sandbox, self._stop.is_set, self.timeout)})
                     except Exception as e:
                         self.results.append({**row, "status": "error", "passed": False, "why": str(e)})
         self.current = ""

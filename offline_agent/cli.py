@@ -198,6 +198,7 @@ def main(argv=None):
     p_bench.add_argument("--telegram", default="on", help="on, off or on,off")
     p_bench.add_argument("--full-voice", default="on", help="on, off or on,off")
     p_bench.add_argument("--notes", default="", help="job notes: on, off or on,off (default: as saved)")
+    p_bench.add_argument("--timeout", type=int, default=15, help="minutes per test before it's stopped (default 15)")
     p_bench.add_argument("--internet", action="store_true", help="include internet tests")
     p_bench.add_argument("--email", action="store_true", help="include email tests (dry)")
     p_info = sub.add_parser("info", help="what an agent or tool does")
@@ -258,7 +259,7 @@ def bench(args):
                 for t, v, n in itertools.product(tel, voice, notes)]
     models = [m.strip() for m in args.models.split(",") if m.strip()] or [""]
     job = start_job(get_manager(), agents=names, models=models, variants=variants,
-                    internet=args.internet, email=args.email)
+                    internet=args.internet, email=args.email, timeout=args.timeout * 60)
     print(f"Bench {job.id}: {job.total} test runs. Ctrl+C to stop.")
     shown = 0
     try:
