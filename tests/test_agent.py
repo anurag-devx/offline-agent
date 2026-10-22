@@ -34,7 +34,7 @@ def test_notes_nudge_and_compaction(fake, downloads):
     fake.format_replies = {"steps": {"steps": ["List pdfs", "Report"]}}
     fake.script = [[("list_folder", {"path": str(downloads), "extensions": ".pdf"})],
                    [("update_step", {"step": 1, "status": "done", "note": "2 pdfs"})],
-                   "finished?",                                   # step 2 still open -> nudge
+                   "",                                            # empty reply with step 2 open -> nudge
                    [("update_step", {"step": 2, "status": "done", "note": "reported"})],
                    "2 pdfs found"]
     agent = Agent(files_cfg(downloads))

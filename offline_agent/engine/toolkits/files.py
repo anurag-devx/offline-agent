@@ -69,7 +69,14 @@ def resolve(path, purpose="use"):
     if not p.is_absolute():
         if not roots:
             raise PermissionError("Give a full path, e.g. ~/Downloads/file.pdf.")
-        p = roots[0] / p
+        # Models write relative paths against different bases ("notes.txt", "_bench/04/notes.txt",
+        # "workspace/notes.txt"). Use the first candidate that exists; otherwise the first folder.
+        candidates = [r / p for r in roots] + [WORKSPACE / p, WORKSPACE.parent / p]
+        p = (next((c for c in candidates if c.exists()), None)              # an existing file/folder
+             or next((c for c in candidates[:len(roots)] if c.parent.exists()  # a new file in an existing
+                      and c.parent != c.parent.parent and len(p.parts) > 1), None)  # subfolder of a root
+             or next((c for c in candidates[len(roots):] if c.parent.exists() and len(p.parts) > 1), None)
+             or roots[0] / p)
     p = p.resolve()
     if is_protected(p):
         raise PermissionError(f"{p} is a protected location. Agents can never use it.")

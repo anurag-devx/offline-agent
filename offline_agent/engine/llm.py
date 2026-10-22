@@ -59,6 +59,8 @@ def _options(model, temperature, think, num_ctx=None, num_predict=None):
     # Only reasoning models accept the `think` switch; others error if we send it.
     if "thinking" in capabilities(model):
         kwargs["think"] = think
+        if think is False and str(model).startswith("gpt-oss"):
+            kwargs["think"] = "low"  # gpt-oss can't switch reasoning off; "low" is its lightest level
     return kwargs
 
 
@@ -69,7 +71,15 @@ def chat(model, messages, tools=None, temperature=0.2, think=False, format=None,
     kwargs = _options(model, temperature, think, num_ctx, num_predict)
     if format:
         kwargs["format"] = format
-    return ollama.chat(model=model, messages=messages, tools=tools or None, **kwargs)
+    resp = ollama.chat(model=model, messages=messages, tools=tools or None, **kwargs)
+    msg = resp.message
+    if (num_predict and getattr(resp, "done_reason", "") == "length" and not (msg.content or "").strip()
+            and not msg.tool_calls):
+        # The reply cap was used up by hidden reasoning (e.g. gpt-oss), leaving nothing.
+        # Retry once without the cap rather than return an empty answer.
+        kwargs["options"] = {k: v for k, v in kwargs["options"].items() if k != "num_predict"}
+        resp = ollama.chat(model=model, messages=messages, tools=tools or None, **kwargs)
+    return resp
 
 
 def chat_stream(model, messages, temperature=0.2, think=False):

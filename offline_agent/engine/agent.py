@@ -143,8 +143,9 @@ class Agent:
     def _plan(self, task, names):
         """One model call: break the task into short steps (telegram style)."""
         cfg = self.config
-        prompt = ("Break the task into 2-6 steps, max 8 words each, telegram style. Only steps that must be "
-                  "done, in order. The last step checks the result.\n\n"
+        prompt = ("Break the task into steps, max 8 words each, telegram style. Use 1 step for a simple task "
+                  "(one or two tool calls, e.g. read a file and answer); 2-6 steps only for real multi-step work. "
+                  "Only steps that must be done, in order.\n\n"
                   f"Agent role:\n{cfg.system_prompt[:1500]}\n\nTools: {', '.join(n for n in names if not is_internal(n))}")
         started = time.time()
         resp = chat(cfg.model, [{"role": "system", "content": prompt}, {"role": "user", "content": task}],
@@ -236,7 +237,7 @@ class Agent:
 
             if not message.tool_calls:
                 open_steps = self.ledger.open_steps() if notes_on else []
-                if open_steps and nudges < 2:
+                if open_steps and nudges < 1 and not (message.content or "").strip():
                     nudges += 1
                     text = (f"[status] Not finished: step(s) {', '.join(str(s.n) for s in open_steps)} still open. "
                             "Do them now with tools, or close each with update_step(step, \"skipped\", reason).")
@@ -244,6 +245,11 @@ class Agent:
                     yield {"type": "nudge", "content": text, "step": step}
                     continue
                 answer = message.content or ""
+                if open_steps:  # the model answered: accept it, close what's left (marked: no evidence)
+                    for s_ in open_steps:
+                        if s_.status == "todo":
+                            s_.status, s_.note, s_.unverified = "done", "closed by the final answer", True
+                    yield {"type": "ledger", "ledger": self.ledger.to_dict(), "step": step}
                 if cfg.full_voice and getattr(response, "done_reason", "") == "length":
                     # Full Voice: the final answer hit the reply cap. Ask for the rest and join the parts.
                     parts = [answer]
