@@ -29,5 +29,9 @@ def add_step(title: str):
     Args:
         title: Short step title, max 8 words
     """
-    s = _ledger().add(title)
+    led = _ledger()
+    before = len(led.steps)
+    s = led.add(title)
+    if len(led.steps) == before:
+        return f"OK step {s.n} is already in the notes: {s.title}. Work on the NOW step."
     return f"OK added step {s.n}: {s.title}"

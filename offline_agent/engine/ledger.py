@@ -35,6 +35,7 @@ class Ledger:
     task: str
     steps: list = field(default_factory=list)
     updated: str = ""
+    made: list = field(default_factory=list)  # files/folders code saw created or replaced in this job
 
     # ------------------------------------------------------------ changes
     def current(self):
@@ -44,6 +45,9 @@ class Ledger:
         return [s for s in self.steps if s.status == "todo"]
 
     def add(self, title):
+        same = next((s for s in self.steps if s.status == "todo" and _norm(s.title) == _norm(title)), None)
+        if same:  # don't let the plan grow duplicates of steps that are still open
+            return same
         step = Step(n=len(self.steps) + 1, title=str(title).strip()[:80] or "step")
         self.steps.append(step)
         self._touch()
@@ -62,6 +66,13 @@ class Ledger:
             "text": text[:140],
         })
         step.evidence = step.evidence[-6:]
+        res = str(result)
+        if res.startswith(("OK created", "OK replaced")):
+            what = res.split(" ", 2)[2].rsplit(" (", 1)[0].strip()
+            what = "/".join(what.rstrip("/").split("/")[-2:]) + ("/" if what.endswith("/") else "")
+            if what not in self.made:
+                self.made.append(what)
+                self.made = self.made[-30:]
         self._touch()
 
     def update(self, n, status, note=""):
@@ -111,6 +122,8 @@ class Ledger:
             if s is now:
                 line += "  ← NOW"
             lines.append(line)
+        if self.made:  # code's record survives the history being trimmed: never redo these
+            lines.append("ALREADY MADE (by code, exists now; use overwrite_file to change): " + ", ".join(self.made))
         lines.append('Work on the NOW step. When it is finished: update_step(step, "done", "one line"). '
                      'Missing a step: add_step. Cannot do one: update_step(step, "skipped" or "blocked", reason).')
         return "\n".join(lines)
@@ -139,4 +152,8 @@ class Ledger:
     @classmethod
     def from_dict(cls, d):
         return cls(job=d["job"], task=d["task"], updated=d.get("updated", ""),
-                   steps=[Step(**s) for s in d.get("steps", [])])
+                   steps=[Step(**s) for s in d.get("steps", [])], made=list(d.get("made", [])))
+
+
+def _norm(title):
+    return " ".join(str(title).lower().split())[:80]

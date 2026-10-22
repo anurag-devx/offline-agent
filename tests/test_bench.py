@@ -91,3 +91,13 @@ def test_case_can_switch_the_inspector_on(tmp_path):
     cfg = load_agent(bench.available_agents()["Math Helper"])
     out = bench.prepare(cfg, {"verify": {"enabled": True, "criteria": "x", "max_attempts": 2}}, tmp_path / "s")
     assert out.verify.enabled and out.verify.max_attempts == 2
+
+
+def test_checks_can_read_page_and_script_together(tmp_path):
+    (tmp_path / "site").mkdir()
+    (tmp_path / "site" / "index.html").write_text('<div id="menu-grid"></div>', encoding="utf-8")
+    (tmp_path / "site" / "script.js").write_text('const items=[{name:"Sourdough"}]', encoding="utf-8")
+    (ok_html,), (ok_both,) = ([ok for _, ok, _ in bench.run_checks(
+        [{"file_contains": {"path": p, "text": ["sourdough"]}}], _Run(), tmp_path)]
+        for p in ("site/index.html", ["site/index.html", "site/script.js"]))
+    assert not ok_html and ok_both

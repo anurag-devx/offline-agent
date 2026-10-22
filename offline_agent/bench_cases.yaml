@@ -45,7 +45,7 @@ cases:
          links to #menu, #about, #hours, #order, a menu button id="menu-toggle" that opens/closes
          the nav on phones, and a dark-mode button id="theme-toggle".
       2. Hero: hero.svg and a "Order now" button that scrolls to #order.
-      3. id="menu": at least 6 items in a grid of cards, each with a picture (the category SVG),
+      3. id="menu": at least 6 items (written in the HTML or built by script.js from a list) in a grid of cards, each with a picture (the category SVG),
          name, one-line description, price in rupees (e.g. ₹120), a category data-category="bread",
          "pastry" or "cake", and an "Add to cart" button. Include sourdough bread, croissants and a
          chocolate cake. Filter buttons above the grid: All, Breads, Pastries, Cakes.
@@ -96,14 +96,12 @@ cases:
       - {file_contains: {path: site/images/hero.svg, text: ['<svg']}}
       - {file_contains: {path: site/images/logo.svg, text: ['<svg']}}
       - {file_contains: {path: site/index.html, text: [Crumbs, Baked fresh every morning, style.css, script.js, name="viewport"]}}
-      - {file_contains: {path: site/index.html, text: [images/logo.svg, images/hero.svg, images/bread.svg, images/pastry.svg, images/cake.svg]}}
+      - {file_contains: {path: [site/index.html, site/script.js], text: [images/logo.svg, images/hero.svg, images/bread.svg, images/pastry.svg, images/cake.svg]}}
       - {file_contains: {path: site/index.html, text: ['id="menu"', 'id="about"', 'id="hours"', 'id="order"', 'id="contact"', '<header', '<footer', '<table']}}
       - {file_contains: {path: site/index.html, text: ['id="menu-toggle"', 'id="theme-toggle"', 'id="open-status"', 'id="cart"', 'id="order-form"']}}
-      - {file_contains: {path: site/index.html, text: ['data-category="bread"', 'data-category="pastry"', 'data-category="cake"']}}
-      - {count_text: {path: site/index.html, text: Add to cart, at_least: 6}}
-      - {count_text: {path: site/index.html, text: ₹, at_least: 6}}
-      - {file_contains: {path: site/index.html, text: [sourdough, croissant, chocolate cake]}}
-      - {file_contains: {path: site/index.html, text: [12 Baker Street, 98765 43210, mailto:hello@crumbs.in, © 2026 Crumbs]}}
+      - {file_contains: {path: [site/index.html, site/script.js], text: [data-category, bread, pastry, cake, Add to cart, ₹]}}
+      - {file_contains: {path: [site/index.html, site/script.js], text: [sourdough, croissant, chocolate cake]}}
+      - {file_contains: {path: [site/index.html, site/script.js], text: [12 Baker Street, 98765 43210, mailto:hello@crumbs.in, © 2026 Crumbs]}}
       - {file_contains: {path: site/script.js, text: [addEventListener, localStorage, preventDefault, order-confirmation, getDay]}}
       - {file_contains: {path: site/style.css, text: ['@media', '--', 'hover']}}
       - {file_not_contains: {path: site/index.html, text: [lorem ipsum, TODO, your text here]}}

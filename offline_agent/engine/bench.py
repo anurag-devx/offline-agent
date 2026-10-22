@@ -76,6 +76,25 @@ def _files(folder, extensions=(), kinds=()):
         if Path(folder).is_dir() else []
 
 
+class _Found:
+    def __init__(self, ok):
+        self.ok = ok
+
+    def is_file(self):
+        return self.ok
+
+
+def _read(sandbox, path):
+    """Text of one file, or of several joined (e.g. a page whose menu is built by its script)."""
+    paths = path if isinstance(path, list) else [path]
+    files = [sandbox / x for x in paths if (sandbox / x).is_file()]
+    return _Found(bool(files)), "\n".join(f.read_text(errors="replace") for f in files).lower()
+
+
+def _label(path):
+    return " + ".join(path) if isinstance(path, list) else path
+
+
 def run_checks(checks, run, sandbox):
     answer = (run.answer or "").lower()
     out = []
@@ -91,25 +110,24 @@ def run_checks(checks, run, sandbox):
             elif kind == "file_exists":
                 out.append((f"{arg} exists", (sandbox / arg).exists(), ""))
             elif kind in ("file_contains", "file_not_contains"):
-                p = sandbox / arg["path"]
+                p, body = _read(sandbox, arg["path"])
                 words = arg["text"] if isinstance(arg["text"], list) else [arg["text"]]
-                body = p.read_text(errors="replace").lower() if p.is_file() else ""
                 found = [w for w in words if str(w).lower() in body]
                 if kind == "file_contains":
                     missing = [w for w in words if w not in found]
-                    out.append((f"{arg['path']} contains " + ", ".join(f'"{w}"' for w in words),
+                    out.append((f"{_label(arg['path'])} contains " + ", ".join(f'"{w}"' for w in words),
                                 p.is_file() and not missing,
                                 "file missing" if not p.is_file() else ("missing: " + ", ".join(map(str, missing))
                                                                         if missing else "")))
                 else:
-                    out.append((f"{arg['path']} has no " + ", ".join(f'"{w}"' for w in words),
+                    out.append((f"{_label(arg['path'])} has no " + ", ".join(f'"{w}"' for w in words),
                                 p.is_file() and not found,
                                 "file missing" if not p.is_file() else ("found: " + ", ".join(map(str, found))
                                                                         if found else "")))
             elif kind == "count_text":
-                p = sandbox / arg["path"]
-                n = p.read_text(errors="replace").lower().count(str(arg["text"]).lower()) if p.is_file() else 0
-                out.append((f"{arg['path']} has \"{arg['text']}\" ≥{arg.get('at_least', 1)} times",
+                p, body = _read(sandbox, arg["path"])
+                n = body.count(str(arg["text"]).lower())
+                out.append((f"{_label(arg['path'])} has \"{arg['text']}\" ≥{arg.get('at_least', 1)} times",
                             n >= arg.get("at_least", 1), f"found {n}"))
             elif kind == "file_glob":
                 hits = [Path(h) for h in glob.glob(str(sandbox / arg["pattern"]))]

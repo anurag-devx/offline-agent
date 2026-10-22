@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Job notes: code keeps an "ALREADY MADE" list of files the job created, so the agent no longer
+  redoes finished work after old messages are trimmed; duplicate open steps aren't added twice
+- Bench checks can read several files together (e.g. a menu built by script.js counts)
+
 - **Default model is now `gemma4:e4b`** (templates and new agents): in the Test Bench on a
   MacBook Air M2 it passed every test, was fastest on quick tasks and built the best website.
   `qwen3.5:9b` remains a tested alternative
