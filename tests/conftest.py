@@ -49,7 +49,9 @@ class FakeModel:
         else:
             msg = Message(role="assistant", content="", tool_calls=[
                 Message.ToolCall(function=Message.ToolCall.Function(name=n, arguments=a)) for n, a in reply])
-        return ChatResponse(model=model, prompt_eval_count=10, eval_count=5, **self.durations, message=msg)
+        done = reply.get("done_reason") if isinstance(reply, dict) else None
+        return ChatResponse(model=model, prompt_eval_count=10, eval_count=5, **self.durations, message=msg,
+                            done_reason=done)
 
 
 @pytest.fixture

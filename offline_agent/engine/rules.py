@@ -198,7 +198,7 @@ class RuleAgent:
         yield {"type": "ledger", "ledger": led.to_dict(), "step": 2}
 
         # ---- 3. code moves the files
-        problems = []
+        problems, per_rule = [], []
         for r in rules:
             if self.should_stop():
                 yield {"type": "stopped", "content": "Stopped by user.", "step": 3}
@@ -212,7 +212,9 @@ class RuleAgent:
             except Exception as e:
                 result = f"Error: {e}"
             tool_s = round(time.time() - t_tool, 2)
-            yield from ({**ev, "step": 3} for ev in self._drain(ctx))
+            evs = self._drain(ctx)
+            per_rule.append((r, sum(1 for ev in evs if ev["type"] == "file_op" and ev["op"] == "move")))
+            yield from ({**ev, "step": 3} for ev in evs)
             if "NOT MOVED" in result or result.startswith("Error"):
                 problems.append(result)
             led.attach("move_files", result)
@@ -236,10 +238,22 @@ class RuleAgent:
         led.update(4, "done" if complete else "blocked", reason)
         yield {"type": "ledger", "ledger": led.to_dict(), "step": 4}
 
-        lines = [("DONE ✓" if complete else "PARTLY DONE ⚠"), text,
-                 f"changes {moved} · left {len(left)}" + (f" · problems {len(problems)}" if problems else "")]
-        if left:
-            lines.append("left: " + ", ".join(left[:10]) + (" …" if len(left) > 10 else ""))
+        if cfg.full_voice:  # Full Voice: the same facts, written for a person (by code, not the model)
+            lines = [("Done." if complete else "Partly done.")]
+            for r, n in per_rule:
+                what = ", ".join(r["extensions"] + r["kinds"]) or f'names containing "{r["name_contains"]}"'
+                lines.append(f"• Moved {n} file{'s' if n != 1 else ''} ({what}) from {files.short(source)} "
+                             f"to {files.short(r['destination'])}.")
+            lines.append("Nothing matching is left in the folder." if complete else
+                         f"{len(left)} matching file(s) are still there: " + ", ".join(left[:10]) + ".")
+            if problems:
+                lines.append(f"{len(problems)} problem(s) during the move; see the run log.")
+            lines.append("You can undo these moves from the run's file log.")
+        else:
+            lines = [("DONE ✓" if complete else "PARTLY DONE ⚠"), text,
+                     f"changes {moved} · left {len(left)}" + (f" · problems {len(problems)}" if problems else "")]
+            if left:
+                lines.append("left: " + ", ".join(left[:10]) + (" …" if len(left) > 10 else ""))
         yield {"type": "answer", "content": "\n".join(lines), "step": 4}
 
 
@@ -375,7 +389,7 @@ class EmailRuleAgent(RuleAgent):
             yield {"type": "ledger", "ledger": led.to_dict(), "step": 2}
 
             # ---- 3. code moves the emails
-            moved, problems = 0, []
+            moved, problems, per_rule = 0, [], []
             for r, uids in zip(rules, matches):
                 if self.should_stop():
                     yield {"type": "stopped", "content": "Stopped by user.", "step": 3}
@@ -388,6 +402,7 @@ class EmailRuleAgent(RuleAgent):
                     try:
                         n = mail.move_uids(conn, uids, folder, r["destination"])
                         moved += n
+                        per_rule.append((r, n))
                         for uid in uids:
                             yield {"type": "email_op", "op": "move", "uid": uid, "from_folder": folder,
                                    "to_folder": r["destination"], "step": 3}
@@ -415,6 +430,17 @@ class EmailRuleAgent(RuleAgent):
         led.attach("check", ("ok " if complete else "ERR ") + reason)
         led.update(4, "done" if complete else "blocked", reason)
         yield {"type": "ledger", "ledger": led.to_dict(), "step": 4}
-        yield {"type": "answer", "step": 4, "content": "\n".join(
-            [("DONE ✓" if complete else "PARTLY DONE ⚠"), text,
-             f"moved {moved} emails · left {left}" + (f" · problems {len(problems)}" if problems else "")])}
+        if cfg.full_voice:
+            lines = ["Done." if complete else "Partly done."]
+            for r, n in per_rule:
+                match = " and ".join(x for x in [f'from "{r["from_contains"]}"' if r["from_contains"] else "",
+                                                 f'with "{r["subject_contains"]}" in the subject'
+                                                 if r["subject_contains"] else ""] if x)
+                lines.append(f"• Moved {n} email{'s' if n != 1 else ''} {match} to {r['destination']}.")
+            lines.append(f"No matching emails are left in {folder}." if complete else
+                         f"{left} matching email(s) are still in {folder}.")
+            content = "\n".join(lines)
+        else:
+            content = "\n".join([("DONE ✓" if complete else "PARTLY DONE ⚠"), text,
+                                 f"moved {moved} emails · left {left}" + (f" · problems {len(problems)}" if problems else "")])
+        yield {"type": "answer", "step": 4, "content": content}

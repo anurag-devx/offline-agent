@@ -192,7 +192,7 @@ with tabs[0]:
             st.caption("Rule mode organizes **files** (`~/Downloads · .pdf → all_pdf`) or **email** "
                        "(`INBOX · from \"amazon\" → Receipts`). One model call writes the rule; you approve it with "
                        "the exact list; code moves and checks. Needs Files: Read + Move, or Email: Read + Organize.")
-        a, b, c = st.columns(3)
+        a, b, c, d = st.columns(4)
         plan_steps = a.checkbox("Job notes (plan + checklist)", base.plan_steps, key=k("notes"),
                                 help="The agent plans steps, ticks them off with a one-line note; code adds evidence. "
                                      "Messages from finished steps are dropped, so the context stays small.",
@@ -201,7 +201,10 @@ with tabs[0]:
                            help="Short replies, plus: Slim Schemas (short tool descriptions), Ghost Chatter and "
                                 "No Echo (narration and hidden thinking dropped from history), Fade Out (old tool "
                                 "results shrink to one line). Tools always answer Morse-style.")
-        max_reply = int(c.number_input("Max reply tokens (0 = no cap)", 0, 32768, base.max_reply_tokens, step=256,
+        full_voice = d.checkbox("Full Voice", base.full_voice, key=k("fullvoice"),
+                                help="Final answers as detailed as the task needs, continued automatically if "
+                                     "they hit the reply cap. Off = short final answers (max ~8 lines).")
+        max_reply = int(c.number_input("Max reply tokens while working (0 = no cap)", 0, 32768, base.max_reply_tokens, step=256,
                                        key=k("maxrep"), help="Caps each model reply. Raise it for agents that "
                                                              "write long files (websites)."))
 
@@ -229,7 +232,7 @@ with tabs[0]:
                       permissions=Policy(files=files, internet=net, email=mail, memory=mem, interaction=talk),
                       max_steps=max_steps, temperature=temperature, think=think,
                       context_length=int(context_length), verify=verify_cfg, mode=mode,
-                      plan_steps=plan_steps, terse=terse, max_reply_tokens=max_reply)
+                      plan_steps=plan_steps, terse=terse, max_reply_tokens=max_reply, full_voice=full_voice)
     st.caption("**Tools this agent gets:** " + ", ".join(f"`{t}`" for t in tools_for(cfg)))
 
     if st.button("💾 Save agent", type="primary"):

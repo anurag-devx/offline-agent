@@ -40,6 +40,8 @@ def render_event(e):
     elif t == "rule":
         st.markdown("📐 **Rule written by the model:**")
         st.code(e["text"], language=None)
+    elif t == "continued":
+        st.caption(f"🗣 Full Voice: the answer was long, so it was written in {e['parts']} parts and joined.")
     elif t == "nudge":
         st.caption(f"🔔 Reminded the agent: {e['content']}")
     elif t == "compacted":
@@ -56,7 +58,8 @@ def render_event(e):
         else:
             st.error(f"🔍 Not complete: {e['reason']}  \nMissing: {e['missing']}")
     elif t == "model_call":
-        what = {"plan": "planned the job", "rule": "wrote the rule"}.get(e.get("purpose"), f"step {e['step']}")
+        what = {"plan": "planned the job", "rule": "wrote the rule",
+                "continue": "continued the answer"}.get(e.get("purpose"), f"step {e['step']}")
         detail = (f" · load {e['load_s']}s · read {e['prompt_tokens']} tok in {e['read_s']}s"
                   f" · write {e['output_tokens']} tok in {e['write_s']}s") if "read_s" in e else \
             f" ({e['prompt_tokens']} in / {e['output_tokens']} out tokens)"

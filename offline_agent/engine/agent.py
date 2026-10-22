@@ -29,8 +29,14 @@ from .tools import (get_schemas, internal_tools, is_internal, permission_of, pre
                     tools_for)
 
 DENIED = "The user denied this action. Do not try it again; continue without it or explain what you could not do."
-TERSE = ("\n\nSTYLE (telegram): keep every reply short and factual. No essays, no restating lists or "
-         "file names. Act with tools; write only to report. Final answer: at most 8 short lines.")
+# Telegram style for the machine side (work), Full Voice for the human side (the final answer).
+TERSE = ("\n\nSTYLE (telegram) while working: keep replies between tool calls short and factual. "
+         "No restating lists or file names. Act with tools; write only to report.")
+FINAL_SHORT = " Final answer: at most 8 short lines."
+FINAL_FULL = (" Your FINAL answer to the user is different: make it as complete and detailed as the task "
+              "needs (summaries, analysis, explanations, tables).")
+CONTINUE = "[continue] Your answer was cut off. Continue exactly where you stopped. Do not repeat anything."
+MAX_CONTINUES = 3
 PLAN_SCHEMA = {"type": "object", "properties": {"steps": {"type": "array", "items": {"type": "string"}}},
                "required": ["steps"]}
 
@@ -58,7 +64,10 @@ class Agent:
 
     def reset(self):
         """Forget the conversation, notes and any access granted during it."""
-        prompt = self.config.system_prompt + (TERSE if self.config.terse else "")
+        cfg = self.config
+        style = (TERSE + (FINAL_FULL if cfg.full_voice else FINAL_SHORT)) if cfg.terse else \
+            (FINAL_FULL if cfg.full_voice else "")
+        prompt = cfg.system_prompt + style
         self.messages = [{"role": "system", "content": prompt}]
         self.tags = [None]          # which step each message belongs to (None = keep forever)
         self.state = {"granted_folders": [], "granted_domains": [], "changes": 0}
@@ -234,7 +243,28 @@ class Agent:
                     self._add({"role": "user", "content": text}, tag)
                     yield {"type": "nudge", "content": text, "step": step}
                     continue
-                yield {"type": "answer", "content": message.content or "", "step": step}
+                answer = message.content or ""
+                if cfg.full_voice and getattr(response, "done_reason", "") == "length":
+                    # Full Voice: the final answer hit the reply cap. Ask for the rest and join the parts.
+                    parts = [answer]
+                    for _ in range(MAX_CONTINUES):
+                        self._add({"role": "user", "content": CONTINUE}, None)
+                        started = time.time()
+                        try:
+                            more = self._call(self.messages, None)  # no tools: just keep writing
+                        except Exception as e:
+                            yield {"type": "warning", "step": step, "content": f"Could not continue the answer: {e}"}
+                            break
+                        self._add(more.message, None)
+                        parts.append(more.message.content or "")
+                        yield {"type": "model_call", "purpose": "continue", "step": step,
+                               "seconds": round(time.time() - started, 1), **timing(more),
+                               "thinking": "", "content": ""}
+                        if getattr(more, "done_reason", "") != "length":
+                            break
+                    answer = "".join(parts)
+                    yield {"type": "continued", "parts": len(parts), "step": step}
+                yield {"type": "answer", "content": answer, "step": step}
                 return
 
             closed_before = sum(s.status != "todo" for s in self.ledger.steps) if notes_on else 0

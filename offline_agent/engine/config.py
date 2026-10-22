@@ -44,7 +44,8 @@ class AgentConfig:
     mode: str = "agent"         # "agent": the model does the work | "rules": the model writes a rule, code does the work
     plan_steps: bool = True     # job notes: plan + checklist + evidence; old messages are dropped
     terse: bool = True          # telegram style: short replies
-    max_reply_tokens: int = 1024  # cap on each model reply (0 = no cap)
+    max_reply_tokens: int = 1024  # cap on each model reply while working (0 = no cap)
+    full_voice: bool = True     # final answers as detailed as needed; continued automatically if cut off
 
     @classmethod
     def from_dict(cls, data):
@@ -65,7 +66,7 @@ class AgentConfig:
                 "max_steps": self.max_steps, "temperature": self.temperature, "think": self.think,
                 "context_length": self.context_length, "verify": asdict(self.verify),
                 "mode": self.mode, "plan_steps": self.plan_steps, "terse": self.terse,
-                "max_reply_tokens": self.max_reply_tokens}
+                "max_reply_tokens": self.max_reply_tokens, "full_voice": self.full_voice}
 
     def to_yaml(self):
         return yaml.dump(self.to_dict(), sort_keys=False, allow_unicode=True)
