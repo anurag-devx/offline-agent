@@ -1,0 +1,51 @@
+# Test Bench: one test per built-in agent. {sandbox} = a fresh folder for each test.
+# Checks run in code after the agent finishes. Your own agents can add a `bench:` section
+# (task + checks) to their YAML; agents without one get a simple "does it answer?" test.
+cases:
+  - agent: General Assistant
+    task: In one sentence, what is the capital of France?
+    checks: [{answer_contains: Paris}]
+
+  - agent: Math Helper
+    task: What is 18% of 1240?
+    checks: [{answer_contains: "223.2"}]
+
+  - agent: File Helper
+    setup: {notes.txt: "Team update: the product launch moves to Friday the 14th."}
+    task: Read notes.txt in {sandbox} and tell me in one line when the launch is.
+    checks: [{answer_contains: Friday}]
+
+  - agent: Note Taker
+    task: Please note that the team meeting is at 5pm on Monday.
+    checks: [{file_contains: {path: notes.md, text: 5pm}}]
+
+  - agent: File Sorter
+    setup: {a.pdf: x, b.pdf: x, photo.jpg: x, sub/deep.pdf: x}
+    task: Move all pdf files in {sandbox} to a new folder called all_pdf.
+    checks:
+      - {no_files: {folder: ".", extensions: [".pdf"]}}
+      - {count_files: {folder: all_pdf, extensions: [".pdf"], equals: 2}}
+      - {file_exists: sub/deep.pdf}
+      - {file_exists: photo.jpg}
+
+  - agent: Website Builder
+    task: Build a one-page website for a bakery called Crumbs in the folder site/ inside {sandbox}.
+    checks:
+      - {file_exists: site/index.html}
+      - {file_contains: {path: site/index.html, text: Crumbs}}
+
+  - agent: News Collector
+    needs: internet
+    task: Collect today's stock market headlines and save them to a text file in the news/ folder inside {sandbox}.
+    checks: [{file_glob: {pattern: "news/*.txt", min_lines: 3}}]
+
+  - agent: Web Researcher
+    needs: internet
+    task: Research what Ollama is and save a short report as reports/ollama.md inside {sandbox}.
+    checks: [{file_glob: {pattern: "reports/*.md", min_lines: 3}}]
+
+  - agent: Gmail Sorter
+    needs: email
+    dry: true   # the move is always denied: only the rule is checked, your mailbox is never changed
+    task: Move emails from amazon to a folder called Receipts.
+    checks: [{rule_written: amazon}]

@@ -253,13 +253,14 @@ def overwrite_file(path: str, content: str):
 
 @tool("files.modify")
 def append_note(text: str):
-    """Add a timestamped line to notes.md in the workspace.
+    """Add a timestamped line to notes.md (in the agent's first folder, usually the workspace).
 
     Args:
         text: The note to save
     """
     ctx = get_context()
-    p = resolve(str(WORKSPACE / "notes.md"), "write")
+    roots = _roots(ctx)
+    p = resolve(str((roots[0] if roots else WORKSPACE) / "notes.md"), "write")
     _count_change(ctx, "modify", dst=str(p))
     with open(p, "a", encoding="utf-8") as f:
         f.write(f"- [{datetime.now():%Y-%m-%d %H:%M}] {text}\n")

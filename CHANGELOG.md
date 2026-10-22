@@ -7,6 +7,10 @@
 - **Telegram style everywhere**: Morse (compact tool output), Page Turner (paged reads for files,
   web pages, emails), Slim Schemas, Ghost Chatter, No Echo, Fade Out, Word Limit
 - **Token Meter**: what each call sent and what the Telegram features saved
+- **Full Voice**: Telegram style applies to working steps only; final answers are as detailed as needed
+  and are continued automatically if cut off; readable Clerk summaries. Toggle per agent
+- **Test Bench**: sandboxed tests for every agent, checks in code, comparison across Telegram /
+  Full Voice / models; page, `offline-agent bench`, reports in `bench/`; agents can add a `bench:` test
 - Installs work with the setuptools already in a venv (`pip install -e . --no-build-isolation`)
 
 ## v0.2.0 (2026-10-20)

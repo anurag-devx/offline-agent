@@ -91,8 +91,33 @@ These features keep that small. All are measured in each run's **⚡ Speed** pan
 | **Word Limit** | Reply caps per call type (steps, plans, rules, verdicts) |
 | **Stopwatch** | Per call: load / read / write time, tokens and tokens per second |
 | **Token Meter** | What each call sent (instructions, tools, history, notes) and what was saved |
+| **Full Voice** | Compact while working, complete final answers; a cut-off answer is continued automatically |
 
-Telegram-style features are on by default (Design → ⚙️ How it works → *Telegram style*).
+Telegram style is for the machine side (what the model reads); **Full Voice** keeps the human side
+(final answers, summaries, analysis) as detailed as needed. Both are toggles in
+Design → ⚙️ How it works, so you can compare.
+
+## Test Bench
+
+Run every agent on a built-in test, check the result in code, and compare settings and models:
+
+```bash
+offline-agent bench --telegram on,off --full-voice on,off
+offline-agent bench --agents "File Sorter,Math Helper" --models qwen3.5:9b,gpt-oss:20b
+```
+
+Or use the **🧪 Test Bench** page. Each test runs in its own sandbox folder (`workspace/_bench/`),
+so your files are never touched; email tests are dry (the rule is checked, nothing is moved).
+You get a comparison (pass rate, time, model calls, tokens) and a report in `bench/`.
+Your own agents can add a test to their YAML:
+
+```yaml
+bench:
+  task: Move all pdf files in {sandbox} to all_pdf
+  checks:
+    - {no_files: {folder: ".", extensions: [".pdf"]}}
+    - {count_files: {folder: all_pdf, at_least: 1}}
+```
 
 ## Requirements
 
@@ -145,6 +170,7 @@ offline-agent list                     # your agents and the templates
 offline-agent run file_sorter          # chat with an agent (approvals asked as y/n)
 offline-agent check news_collector     # validate an agent
 offline-agent scheduler                # run schedules without the app
+offline-agent bench                    # test agents and compare settings/models
 ```
 
 **Python:**
@@ -204,6 +230,9 @@ offline_agent/
     verifier.py      read-only checker for "is the task really done?"
     memory.py        long-term memory (SQLite + local embeddings)
     scheduler.py     scheduled runs
+    bench.py         Test Bench: sandboxed tests, code checks, comparisons
+    speed.py         Stopwatch + Token Meter numbers
+    telegram.py      Page Turner, Slim Schemas, Fade Out helpers
     runs.py          background runs, tracking, recording
     permissions.py   the permission policy (capabilities, modes, scopes)
     tools.py         tool registry (@tool)

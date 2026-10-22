@@ -85,11 +85,13 @@ class RunManager:
         self.unattended = unattended  # True = nobody is watching (headless scheduler)
         self.runs = {}
         self._lock = threading.Lock()
-        self._agents, self._stops, self._decisions = {}, {}, {}
+        self._agents, self._stops, self._decisions, self._auto = {}, {}, {}, {}
         self._load_history()
 
     # ---------------------------------------------------------------- public API
-    def start(self, cfg, task):
+    def start(self, cfg, task, auto=None):
+        """auto (Test Bench only): {"approve": "all"|"no", "answers": [...]} answers approvals and
+        questions automatically, because the bench limits the agent to a sandbox folder."""
         rid = datetime.now().strftime("%Y%m%d-%H%M%S-") + uuid.uuid4().hex[:4]
         run = Run(id=rid, agent=cfg.name, model=cfg.model, task=task,
                   started=_now(), config=cfg.to_dict())
@@ -97,6 +99,8 @@ class RunManager:
         (RUNS_DIR / rid / "agent.yaml").write_text(cfg.to_yaml(), encoding="utf-8")
         self.runs[rid] = run
         self._stops[rid] = threading.Event()
+        if auto:
+            self._auto[rid] = {"approve": auto.get("approve", "all"), "answers": list(auto.get("answers") or [])}
         self._agents[rid] = make_agent(
             cfg, job_id=rid,
             approver=lambda n, a: self._wait(rid, {"kind": "approval", "name": n, "args": a}, "no"),
@@ -301,6 +305,15 @@ class RunManager:
         """Called from the agent's thread. Blocks until you answer in the UI (or Stop).
         A threading.Event is a flag one thread waits on and another thread sets."""
         run = self.runs[rid]
+        auto = self._auto.get(rid)
+        if auto is not None:  # Test Bench: answer automatically and say so in the log
+            if pending["kind"] == "question":
+                answer = auto["answers"].pop(0) if auto["answers"] else "Use your best judgment."
+                self._record(run, {"type": "warning", "content": f"Bench answered the question: {answer}"})
+                return answer
+            self._record(run, {"type": "warning", "content": f"Bench {'approved' if auto['approve'] != 'no' else 'denied'}"
+                                                             f" '{pending.get('name')}' automatically (sandbox only)."})
+            return auto["approve"]
         if self.unattended:  # nobody can answer: deny / no answer, and say so in the log
             self._record(run, {"type": "warning", "content": f"Unattended run: '{pending.get('name') or 'question'}' "
                                                              "was denied automatically (no one to approve)."})

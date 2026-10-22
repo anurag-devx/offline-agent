@@ -35,7 +35,13 @@ class FakeModel:
         if format:
             for key, reply in self.format_replies.items():
                 if key in format.get("properties", {}):
-                    value = reply() if callable(reply) else reply
+                    if callable(reply):
+                        try:
+                            value = reply(messages)
+                        except TypeError:
+                            value = reply()
+                    else:
+                        value = reply
                     return ChatResponse(model=model, prompt_eval_count=10, eval_count=5, **self.durations,
                                         message=Message(role="assistant", content=json.dumps(value)))
             raise AssertionError(f"no fake reply for schema {list(format.get('properties', {}))}")

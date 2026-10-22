@@ -13,3 +13,4 @@ schedules/
 *.egg-info/
 build/
 dist/
+bench/

@@ -28,6 +28,7 @@ pages = st.navigation([
     st.Page(str(PKG / "ui" / "workspace.py"), title="Workspace", icon="📁"),
     st.Page(str(PKG / "ui" / "memory.py"), title="Memory", icon="🧠"),
     st.Page(str(PKG / "ui" / "schedules.py"), title="Schedules", icon="⏰"),
+    st.Page(str(PKG / "ui" / "bench.py"), title="Test Bench", icon="🧪"),
     st.Page(str(PKG / "ui" / "models.py"), title="Models", icon="🧩"),
     st.Page(str(PKG / "ui" / "settings.py"), title="Settings", icon="⚙️"),
 ])

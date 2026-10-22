@@ -6,6 +6,7 @@ offline-agent command line.
   offline-agent run <agent.yaml>       chat with an agent in the terminal
   offline-agent check <agent.yaml>     validate an agent
   offline-agent scheduler              run schedules without the app (Ctrl+C to stop)
+  offline-agent bench                  test agents and compare settings/models
   offline-agent where                  show where your data is stored
 """
 import argparse
@@ -189,6 +190,13 @@ def main(argv=None):
     p_check = sub.add_parser("check", help="validate an agent")
     p_check.add_argument("agent")
     sub.add_parser("scheduler", help="run schedules without the app")
+    p_bench = sub.add_parser("bench", help="test agents and compare settings/models")
+    p_bench.add_argument("--agents", default="", help="comma separated names (default: all offline tests)")
+    p_bench.add_argument("--models", default="", help="comma separated models (default: each agent's own)")
+    p_bench.add_argument("--telegram", default="on", help="on, off or on,off")
+    p_bench.add_argument("--full-voice", default="on", help="on, off or on,off")
+    p_bench.add_argument("--internet", action="store_true", help="include internet tests")
+    p_bench.add_argument("--email", action="store_true", help="include email tests (dry)")
     sub.add_parser("where", help="show where your data is stored")
     args, extra = parser.parse_known_args(argv)
 
@@ -200,6 +208,8 @@ def main(argv=None):
         return run_agent(args.agent, check_only=True)
     if args.cmd == "scheduler":
         return headless_scheduler()
+    if args.cmd == "bench":
+        return bench(args)
     if args.cmd == "where":
         from .engine.paths import PKG_DIR, ROOT
         print(f"Your data: {ROOT}\nProgram:   {PKG_DIR}\n(set OFFLINE_AGENT_HOME to move your data)")
@@ -207,6 +217,42 @@ def main(argv=None):
     if args.cmd == "list":
         return list_agents()
     parser.print_help()
+
+
+def bench(args):
+    import itertools
+    from .engine.bench import available_agents, case_for, start_job
+    found = available_agents()
+    names = [a.strip() for a in args.agents.split(",") if a.strip()] or \
+        [a for a in found if not case_for(a, found[a]).get("needs") and not case_for(a, found[a]).get("smoke")]
+    tel = [x.strip() for x in args.telegram.split(",") if x.strip()]
+    voice = [x.strip() for x in args.full_voice.split(",") if x.strip()]
+    variants = [f"Telegram {t} + Full Voice {v}" for t, v in itertools.product(tel, voice)]
+    models = [m.strip() for m in args.models.split(",") if m.strip()] or [""]
+    job = start_job(get_manager(), agents=names, models=models, variants=variants,
+                    internet=args.internet, email=args.email)
+    print(f"Bench {job.id}: {job.total} test runs. Ctrl+C to stop.")
+    shown = 0
+    try:
+        while not job.done:
+            for r in job.results[shown:]:
+                res = "skipped" if r.get("passed") is None else ("PASS" if r["passed"] else "FAIL")
+                print(f"  {res:7} {r['agent']} · {r['model']} · {r['variant']} · {r.get('seconds', '-')}s")
+            shown = len(job.results)
+            time.sleep(1)
+    except KeyboardInterrupt:
+        job.stop()
+        while not job.done:
+            time.sleep(0.5)
+    for r in job.results[shown:]:
+        res = "skipped" if r.get("passed") is None else ("PASS" if r["passed"] else "FAIL")
+        print(f"  {res:7} {r['agent']} · {r['model']} · {r['variant']} · {r.get('seconds', '-')}s")
+    print("\nComparison:")
+    for s in job.summary():
+        print(f"  {s['model']} · {s['variant']}: {s['passed']} passed · {s['avg_seconds']}s avg · "
+              f"{s['avg_calls']} calls · {s['avg_tokens_in']:.0f} tokens in")
+    from .engine.bench import BENCH_DIR
+    print(f"Report: {BENCH_DIR / (job.id + '.md')}")
 
 
 def legacy_main():
