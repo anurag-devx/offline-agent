@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.3.1 (2026-10-23)
+
+- Fix (Windows): the Test Bench, Relay checks, Workspace preview and scheduler now read and write
+  files as UTF-8, so text like ₹ is no longer garbled and checks no longer miss it
+
 ## v0.3.0 (2026-10-23)
 
 - **Triage**: rates each task (code signals first, the model only when unclear) and sends simple

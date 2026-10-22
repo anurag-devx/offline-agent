@@ -131,7 +131,7 @@ def check_output(chunk, path):
     """Code's check of one chunk's file. Returns a list of problems (empty = passed)."""
     if not path or not Path(path).is_file():
         return [f"output file {chunk['output']} was not created"]
-    body = Path(path).read_text(errors="replace")
+    body = Path(path).read_text(encoding="utf-8", errors="replace")
     low, problems = body.lower(), []
     if len(body.strip()) < 20:
         problems.append("the file is (almost) empty")

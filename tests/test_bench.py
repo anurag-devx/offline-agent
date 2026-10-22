@@ -35,7 +35,7 @@ def test_bench_runs_checks_and_compares(fake, tmp_path, monkeypatch):
     summary = job.summary()
     assert {s["variant"] for s in summary} == {"Telegram on", "Telegram off"}
     assert all(s["passed"] == "2/2" for s in summary)
-    assert (tmp_path / "bench" / f"{job.id}.md").read_text().startswith("# Test Bench")
+    assert (tmp_path / "bench" / f"{job.id}.md").read_text(encoding="utf-8").startswith("# Test Bench")
 
 
 def test_failing_check_is_reported(fake, tmp_path, monkeypatch):

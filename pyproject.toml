@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "offline-agent"
-version = "0.3.0"
+version = "0.3.1"
 description = "Design, preview, validate, run and track AI agents on local models (Ollama). The model decides, code does the work."
 readme = "README.md"
 license = { text = "MIT" }

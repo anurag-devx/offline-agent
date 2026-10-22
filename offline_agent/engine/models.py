@@ -88,7 +88,7 @@ def import_gguf(path, name):
     with tempfile.TemporaryDirectory() as tmp:
         link = Path(tmp) / "model.gguf"
         link.symlink_to(src)  # avoids problems with spaces in the original path
-        (Path(tmp) / "Modelfile").write_text("FROM ./model.gguf\n")
+        (Path(tmp) / "Modelfile").write_text("FROM ./model.gguf\n", encoding="utf-8")
         proc = subprocess.run([exe, "create", name, "-f", "Modelfile"], cwd=tmp,
                               capture_output=True, text=True, timeout=3600)
     ok = proc.returncode == 0

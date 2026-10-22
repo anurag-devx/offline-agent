@@ -89,7 +89,7 @@ def _read(sandbox, path):
     """Text of one file, or of several joined (e.g. a page whose menu is built by its script)."""
     paths = path if isinstance(path, list) else [path]
     files = [sandbox / x for x in paths if (sandbox / x).is_file()]
-    return _Found(bool(files)), "\n".join(f.read_text(errors="replace") for f in files).lower()
+    return _Found(bool(files)), "\n".join(f.read_text(encoding="utf-8", errors="replace") for f in files).lower()
 
 
 def _label(path):
@@ -132,7 +132,7 @@ def run_checks(checks, run, sandbox):
                             n >= arg.get("at_least", 1), f"found {n}"))
             elif kind == "file_glob":
                 hits = [Path(h) for h in glob.glob(str(sandbox / arg["pattern"]))]
-                lines = max((len([x for x in h.read_text(errors="replace").splitlines() if x.strip()])
+                lines = max((len([x for x in h.read_text(encoding="utf-8", errors="replace").splitlines() if x.strip()])
                              for h in hits if h.is_file()), default=0)
                 ok = bool(hits) and lines >= arg.get("min_lines", 1)
                 out.append((f"{arg['pattern']} with ≥{arg.get('min_lines', 1)} lines", ok, f"{lines} lines"))

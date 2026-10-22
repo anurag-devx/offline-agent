@@ -37,11 +37,11 @@ def inline_assets(html, folder):
     """Put local CSS/JS files into the HTML so the preview below can show the full page."""
     def css(m):
         p = folder / m.group(1)
-        return f"<style>{p.read_text(errors='replace')}</style>" if p.is_file() else m.group(0)
+        return f"<style>{p.read_text(encoding='utf-8', errors='replace')}</style>" if p.is_file() else m.group(0)
 
     def js(m):
         p = folder / m.group(1)
-        return f"<script>{p.read_text(errors='replace')}</script>" if p.is_file() else m.group(0)
+        return f"<script>{p.read_text(encoding='utf-8', errors='replace')}</script>" if p.is_file() else m.group(0)
 
     html = re.sub(r'<link[^>]+href="(?!https?:)([^"]+\.css)"[^>]*>', css, html)
     return re.sub(r'<script[^>]+src="(?!https?:)([^"]+\.js)"[^>]*>\s*</script>', js, html)
@@ -55,7 +55,7 @@ with right:
         path = WORKSPACE / pick
         if path.suffix.lower() in (".html", ".htm"):
             view = st.radio("View", ["Website preview", "Source"], horizontal=True)
-            text = path.read_text(errors="replace")
+            text = path.read_text(encoding="utf-8", errors="replace")
             if view == "Website preview":
                 components.html(inline_assets(text, path.parent), height=650, scrolling=True)
                 st.caption(f"Full browser view: open `{path}` in your browser.")
@@ -66,4 +66,4 @@ with right:
         else:
             lang = {".py": "python", ".css": "css", ".js": "javascript", ".json": "json",
                     ".md": "markdown", ".yaml": "yaml"}.get(path.suffix.lower())
-            st.code(path.read_text(errors="replace")[:50000], language=lang)
+            st.code(path.read_text(encoding="utf-8", errors="replace")[:50000], language=lang)

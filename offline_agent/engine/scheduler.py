@@ -131,7 +131,7 @@ class Scheduler:
     # -- lock: one process runs schedules
     def _lock_holder(self):
         try:
-            data = json.loads(self.lock_path.read_text())
+            data = json.loads(self.lock_path.read_text(encoding="utf-8"))
             if time.time() - data["beat"] < LOCK_STALE:
                 return data
         except Exception:
@@ -140,7 +140,7 @@ class Scheduler:
 
     def _beat(self):
         SCHEDULES_DIR.mkdir(exist_ok=True)
-        self.lock_path.write_text(json.dumps({"pid": os.getpid(), "owner": self.owner, "beat": time.time()}))
+        self.lock_path.write_text(json.dumps({"pid": os.getpid(), "owner": self.owner, "beat": time.time()}), encoding="utf-8")
 
     def status(self):
         holder = self._lock_holder()
