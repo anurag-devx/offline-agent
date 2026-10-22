@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- **Triage**: rates each task (code signals first, the model only when unclear) and sends simple
+  tasks to the main agent and complex ones to Relay. Per agent: `route: auto | single | relay`
+- **Relay**: a PM agent splits a big job into small chunks with a shared contract; one fresh worker
+  per chunk, code checks each chunk and retries only failed ones; an integration pass fits the pieces
+  together; the Inspector reviews and the PM sends chunks back (2 rounds). State is saved, so jobs
+  resume after a stop or restart (`offline-agent resume`, ▶ Resume in the run view); time limit per
+  agent (`time_limit_min`, default 180)
+- Bench: `--route main,relay,triage`
+
 - Job notes: code keeps an "ALREADY MADE" list of files the job created, so the agent no longer
   redoes finished work after old messages are trimmed; duplicate open steps aren't added twice
 - Bench checks can read several files together (e.g. a menu built by script.js counts)

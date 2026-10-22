@@ -29,12 +29,28 @@ def _args(a):
 def render_event(e):
     t = e["type"]
     if t == "user":
-        if e.get("auto"):
+        if e.get("worker"):
+            with st.expander("📨 Brief sent to the worker"):
+                st.text(e["content"])
+        elif e.get("auto"):
             st.markdown(f"🔁 **Sent back to the agent:** {e['content']}")
         else:
             st.markdown(f"**🧑 You:** {e['content']}")
     elif t == "warning":
         st.warning(e["content"])
+    elif t == "triage":
+        where = "🏃 Relay (PM + small agents)" if e["route"] == "relay" else "🤖 main agent"
+        st.caption(f"🚦 Triage ({e['by']}): {e['complexity']} → {where}. {e['reason']}")
+    elif t == "relay":
+        if e.get("chunks"):
+            st.markdown(f"🏃 **Relay · PM plan:** {e['content']}  \n" + "  \n".join(
+                f"{c['id']}. {c['title']}" + (f" → `{c['output']}`" if c["output"] else "") for c in e["chunks"]))
+        elif e.get("status") == "done":
+            st.success(f"🏃 {e['content']}")
+        elif e.get("status") == "failed" or e.get("problems"):
+            st.warning(f"🏃 {e['content']}")
+        else:
+            st.markdown(f"🏃 **Relay · {e.get('phase', '')}:** {e['content']}")
     elif t == "plan":
         st.markdown("📋 **Plan:** " + " → ".join(f"{i}. {x}" for i, x in enumerate(e["steps"], 1)))
     elif t == "rule":
@@ -205,6 +221,16 @@ def render_run(run, key):
     if run.active and st.button("⏹ Stop run", key=f"stop{key}"):
         mgr.stop(run.id)
 
+    if run.relay and run.relay.get("chunks"):
+        from offline_agent.engine.relay import markdown as relay_markdown
+        done = sum(c["status"] == "done" for c in run.relay["chunks"])
+        with st.expander(f"🏃 Relay · {done}/{len(run.relay['chunks'])} chunks · {run.relay.get('phase')}",
+                         expanded=True):
+            st.markdown(relay_markdown(run.id, run.relay))
+            st.caption(f"Saved as runs/{run.id}/notes.md")
+    if mgr.can_resume(run.id) and st.button("▶ Resume Relay job", key=f"resume{key}"):
+        mgr.resume(run.id)
+        st.rerun()
     if run.ledger:
         led = Ledger.from_dict(run.ledger)
         closed = sum(x.status != "todo" for x in led.steps)

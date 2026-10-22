@@ -14,6 +14,10 @@ completed, failed, stopped, interrupted (the app closed while it was active).
 If the agent has verification on, every time it says "done" a read-only verifier checks the
 real state. Not done -> the agent is told what's missing and continues, until verified,
 out of attempts, or you press Stop.
+
+Before the first turn, Triage decides how the task runs: the main agent, or Relay (a PM agent
+splits the job into chunks for small worker agents and pulls them back together). A Relay job
+saves its state in the run, so it can be resumed after a stop or a restart.
 """
 import json
 import shutil
@@ -28,7 +32,9 @@ from pathlib import Path
 from . import audit
 from .ledger import Ledger
 from .rules import make_agent
-from .config import ROOT
+from .config import ROOT, AgentConfig
+from .relay import Relay, markdown as relay_markdown
+from .triage import triage
 from .verifier import verify
 
 RUNS_DIR = ROOT / "runs"
@@ -65,6 +71,8 @@ class Run:
     ledger: dict = None           # job notes (plan + checklist)
     attempts: int = 0             # verification rounds
     verified: bool = False
+    route: str = ""               # Triage's decision: "single" or "relay"
+    relay: dict = None            # Relay job state (plan, chunks, review), when route is relay
     config: dict = field(default_factory=dict)
     events: list = field(default_factory=list)
 
@@ -101,11 +109,7 @@ class RunManager:
         self._stops[rid] = threading.Event()
         if auto:
             self._auto[rid] = {"approve": auto.get("approve", "all"), "answers": list(auto.get("answers") or [])}
-        self._agents[rid] = make_agent(
-            cfg, job_id=rid,
-            approver=lambda n, a: self._wait(rid, {"kind": "approval", "name": n, "args": a}, "no"),
-            asker=lambda q: self._wait(rid, {"kind": "question", "question": q}, "(The run was stopped.)"),
-            should_stop=self._stops[rid].is_set)
+        self._agents[rid] = self._new_agent(rid, cfg)
         audit.log("run_started", run=rid, agent=cfg.name, model=cfg.model, task=task)
         self._launch(rid, task)
         return run
@@ -179,6 +183,30 @@ class RunManager:
         """Only runs started in this session (agent still in memory) and not busy."""
         return rid in self._agents and not self.runs[rid].active
 
+    def can_resume(self, rid):
+        """An unfinished Relay job (stopped, failed by time limit, or interrupted by a restart)."""
+        run = self.runs.get(rid)
+        return bool(run and run.relay and not run.active and run.relay.get("phase") not in ("done",))
+
+    def resume(self, rid, auto=None):
+        """Continue an unfinished Relay job from where it stopped, even after the app restarted."""
+        run = self.runs[rid]
+        if not self.can_resume(rid):
+            raise ValueError("Only an unfinished Relay job can be resumed.")
+        if run.relay.get("phase") == "failed":  # out of review rounds: give it one more
+            run.relay["phase"], run.relay["round"] = "review", max(0, run.relay.get("round", 1) - 1)
+        if rid not in self._agents:
+            cfg = AgentConfig.from_dict(run.config)
+            self._stops[rid] = threading.Event()
+            if auto:
+                self._auto[rid] = {"approve": auto.get("approve", "all"), "answers": list(auto.get("answers") or [])}
+            self._agents[rid] = self._new_agent(rid, cfg)
+        run.turns += 1
+        run.ended = ""
+        self._stops[rid].clear()
+        audit.log("run_resumed", run=rid)
+        self._launch(rid, "[resume the Relay job]")
+
     def list(self):
         return sorted(self.runs.values(), key=lambda r: r.started, reverse=True)
 
@@ -186,6 +214,13 @@ class RunManager:
         return Counter(r.status for r in self.runs.values())
 
     # ---------------------------------------------------------------- internals
+    def _new_agent(self, rid, cfg):
+        return make_agent(
+            cfg, job_id=rid,
+            approver=lambda n, a: self._wait(rid, {"kind": "approval", "name": n, "args": a}, "no"),
+            asker=lambda q: self._wait(rid, {"kind": "question", "question": q}, "(The run was stopped.)"),
+            should_stop=self._stops[rid].is_set)
+
     def _launch(self, rid, text):
         run = self.runs[rid]
         run.status = "running"
@@ -194,7 +229,69 @@ class RunManager:
 
     def _work(self, rid, text):
         run, agent = self.runs[rid], self._agents[rid]
-        cfg, stop = agent.config, self._stops[rid]
+        cfg = agent.config
+        if not run.route:
+            self._triage(run, cfg, text)
+        if run.route == "relay" and (not run.relay or run.relay.get("phase") != "done"):
+            job = Relay(self, run, cfg, text)
+            final = job.run_job()
+            run.answer = job.report()
+            self._record(run, {"type": "answer", "content": run.answer, "relay": True})
+            if final == "completed" and not run.verified:
+                final = "failed"
+        else:
+            final = self._single(run, agent, cfg, text)
+        self._finish(run, cfg, final)
+
+    def _triage(self, run, cfg, text):
+        t = triage(cfg, text)
+        if t["call"]:
+            run.steps += 1
+            run.prompt_tokens += t["call"].get("prompt_tokens", 0)
+            run.output_tokens += t["call"].get("output_tokens", 0)
+            self._record(run, {**t["call"], "step": 0, "thinking": "", "content": ""})
+        run.route = t["route"]
+        self._record(run, {"type": "triage", **{k: v for k, v in t.items() if k != "call"}})
+
+    def _worker_turn(self, run, wcfg, message):
+        """Relay: one fresh worker agent does one chunk. It shares the run's approvals and folder grants."""
+        worker = self._new_agent(run.id, wcfg)
+        worker.state = self._agents[run.id].state
+        run.answer = ""
+        self._record(run, {"type": "user", "content": message, "auto": True, "worker": True})
+        return self._turn(run, worker, message)
+
+    def worker_roots(self, rid):
+        from .paths import resolve_folder
+        agent = self._agents.get(rid)
+        if not agent:
+            return []
+        folders = []
+        for f in agent.config.permissions.files.folders:
+            try:
+                folders.append(str(resolve_folder(f)))
+            except Exception:
+                continue
+        return folders + [str(f) for f in agent.state.get("granted_folders", [])]
+
+    def _review(self, run, cfg, task, notes):
+        """Relay's final review: the read-only Inspector checks the whole result against the task."""
+        rcfg = cfg
+        if not cfg.verify.criteria:
+            import copy
+            rcfg = copy.deepcopy(cfg)
+            rcfg.verify.criteria = "Every part of the task is done, the pieces fit together, and nothing is a placeholder."
+        return self._verify(run, self._agents[run.id], rcfg, task=task, notes=notes)
+
+    def _write_relay_notes(self, run):
+        try:
+            (RUNS_DIR / run.id / "notes.md").write_text(relay_markdown(run.id, run.relay), encoding="utf-8")
+        except Exception:
+            pass
+        self._save(run)
+
+    def _single(self, run, agent, cfg, text):
+        stop = self._stops[run.id]
         message = text
         while True:
             final = self._turn(run, agent, message)
@@ -222,6 +319,10 @@ class RunManager:
                        "Continue now and finish the task with your tools. Do not just describe or summarize.")
             self._record(run, {"type": "user", "content": message, "auto": True})
             run.status = "running"
+        return final
+
+    def _finish(self, run, cfg, final):
+        rid = run.id
         run.status, run.pending, run.ended = final, None, _now()
         self._save(run)
         if cfg.permissions.memory.run_summaries:
@@ -280,13 +381,14 @@ class RunManager:
             pass
         self._save(run)
 
-    def _verify(self, run, agent, cfg):
+    def _verify(self, run, agent, cfg, task=None, notes=None):
         """Run the read-only verifier and record its steps compactly."""
-        task = "\n".join(e["content"] for e in run.events if e["type"] == "user" and not e.get("auto"))
+        task = task or "\n".join(e["content"] for e in run.events if e["type"] == "user" and not e.get("auto"))
         self._record(run, {"type": "verify_start", "attempt": run.attempts})
         verdict = {"complete": False, "reason": "Verifier gave no verdict.", "missing": ""}
         for e in verify(cfg, task, list(run.events), agent.state["granted_folders"], self._stops[run.id].is_set,
-                        notes=Ledger.from_dict(run.ledger).for_model() if run.ledger else ""):
+                        notes=notes if notes is not None else
+                        (Ledger.from_dict(run.ledger).for_model() if run.ledger else "")):
             if e["type"] == "model_call":
                 run.prompt_tokens += e["prompt_tokens"]
                 run.output_tokens += e["output_tokens"]

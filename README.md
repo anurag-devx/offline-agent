@@ -101,6 +101,31 @@ Telegram style is for the machine side (what the model reads); **Full Voice** ke
 (final answers, summaries, analysis) as detailed as needed. Both are toggles in
 Design → ⚙️ How it works, so you can compare.
 
+## Big jobs: Triage and Relay
+
+Small local models do well on one focused piece of work and get lost in a 40-step job.
+So big jobs are split up:
+
+- **🚦 Triage** looks at each task first. Code counts the files it names, the listed requirements and
+  its length; only when that's unclear does the model rate it. Simple tasks go to the main agent,
+  complex ones to Relay.
+- **🏃 Relay**: a **PM agent** writes a plan: a shared *contract* (file names, ids, class names, data that
+  every piece must use) and small *chunks*, one output each. Then, one after another:
+  1. a fresh **worker** builds each chunk, seeing only the brief, the contract, its chunk and the files it
+     depends on, so its context stays small;
+  2. **code checks** each chunk (file exists, must-have texts, no placeholders); a failed chunk is retried
+     with the reason, and only that chunk;
+  3. an **integration** worker checks the pieces fit together and fixes mismatches;
+  4. the **Inspector** reviews the whole result; the PM sends the chunks that need work back, up to 2 rounds.
+
+Code runs this loop, not a model. Relay jobs can take hours on a laptop, so their state is saved in
+the run: **▶ Resume** in the run view (or `offline-agent resume`) continues where it stopped, even
+after a restart. Per agent: **How big tasks run** = Triage decides / Main agent / Relay, plus a time limit.
+
+```bash
+offline-agent bench --agents "Website Builder" --route main,relay --timeout 180
+```
+
 ## Test Bench
 
 Run every agent on a built-in test, check the result in code, and compare settings and models:
@@ -240,6 +265,8 @@ offline_agent/
     rules.py         rule mode for files and email: model writes a rule, code executes it
     ledger.py        job notes: plan, checklist, evidence, notes.md
     verifier.py      read-only checker for "is the task really done?"
+    triage.py        decides: main agent or Relay
+    relay.py         Relay: PM plan, one worker per chunk, checks, integration, review
     memory.py        long-term memory (SQLite + local embeddings)
     scheduler.py     scheduled runs
     bench.py         Test Bench: sandboxed tests, code checks, comparisons

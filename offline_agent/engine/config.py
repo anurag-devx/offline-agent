@@ -49,6 +49,8 @@ class AgentConfig:
     terse: bool = True          # telegram style: short replies
     max_reply_tokens: int = 1024  # cap on each model reply while working (0 = no cap)
     full_voice: bool = True     # final answers as detailed as needed; continued automatically if cut off
+    route: str = "auto"         # Triage: "auto" decides per task | "single" main agent | "relay" PM + small agents
+    time_limit_min: int = 180   # Relay jobs stop after this many minutes (0 = no limit)
 
     @classmethod
     def from_dict(cls, data):
@@ -60,6 +62,8 @@ class AgentConfig:
             data["verify"] = VerifyConfig.from_dict(data.get("verify"))
         if data.get("mode") not in ("agent", "rules"):
             data["mode"] = "agent"
+        if data.get("route") not in ("auto", "single", "relay"):
+            data["route"] = "auto"
         known = cls.__dataclass_fields__
         return cls(**{k: v for k, v in data.items() if k in known})
 
@@ -70,7 +74,8 @@ class AgentConfig:
                 "max_steps": self.max_steps, "temperature": self.temperature, "think": self.think,
                 "context_length": self.context_length, "verify": asdict(self.verify),
                 "mode": self.mode, "plan_steps": self.plan_steps, "terse": self.terse,
-                "max_reply_tokens": self.max_reply_tokens, "full_voice": self.full_voice}
+                "max_reply_tokens": self.max_reply_tokens, "full_voice": self.full_voice,
+                "route": self.route, "time_limit_min": self.time_limit_min}
 
     def to_yaml(self):
         return yaml.dump(self.to_dict(), sort_keys=False, allow_unicode=True)
