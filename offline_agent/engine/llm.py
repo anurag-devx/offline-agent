@@ -19,7 +19,7 @@ def is_running():
 
 
 def list_models():
-    """Names of installed chat models, e.g. ['qwen3.5:9b', 'gemma4:e4b']."""
+    """Names of installed chat models, e.g. ['gemma4:e4b', 'qwen3.5:9b']."""
     try:
         names = [m.model for m in ollama.list().models]
     except Exception:

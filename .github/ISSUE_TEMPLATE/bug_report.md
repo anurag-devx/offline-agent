@@ -11,7 +11,7 @@ about: Something doesn't work
 
 **Setup**
 - OS and machine (e.g. macOS, MacBook Air M2, 16 GB):
-- Model (e.g. qwen3.5:9b):
+- Model (e.g. gemma4:e4b):
 - Agent / template:
 
 **Run log** (Runs page → ⬇ Download full run log; remove anything private)

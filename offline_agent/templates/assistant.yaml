@@ -9,7 +9,7 @@ not_for:
 examples:
 - Explain what a context window is, in two sentences.
 - Give me 5 names for a bakery.
-model: qwen3.5:9b
+model: gemma4:e4b
 system_prompt: |
   You are a helpful, concise assistant. Answer clearly in a few sentences.
 permissions:

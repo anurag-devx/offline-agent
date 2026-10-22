@@ -32,7 +32,7 @@ An agent is a small YAML file:
 
 ```yaml
 name: File Sorter
-model: qwen3.5:9b
+model: gemma4:e4b
 system_prompt: |
   1. Ask the user which folder to sort...
 permissions:
@@ -107,7 +107,7 @@ Run every agent on a built-in test, check the result in code, and compare settin
 
 ```bash
 offline-agent bench --telegram on,off --full-voice on,off
-offline-agent bench --agents "File Sorter,Math Helper" --models qwen3.5:9b,gpt-oss:20b
+offline-agent bench --agents "File Sorter,Math Helper" --models gemma4:e4b,qwen3.5:9b
 ```
 
 Or use the **🧪 Test Bench** page. Each test runs in its own sandbox folder (`workspace/_bench/`),
@@ -135,10 +135,16 @@ bench:
 Rule of thumb: a model needs about its download size in RAM, plus room for the context window.
 Bigger models are more reliable, smaller ones faster.
 
-| Model | Size | Tested on | Result |
-|---|---|---|---|
-| `qwen3.5:9b` | 6.6 GB | MacBook Air M2, 16 GB, macOS | ✅ All templates |
-| *your model here* | | | [Share your result](https://github.com/anurag-devx/offline-agent/issues/new?template=tested_on.md) |
+Measured with the [Test Bench](#test-bench) on a MacBook Air M2, 16 GB, macOS (Telegram style + Full Voice on):
+
+| Model | 4 quick agents* | Avg time | Website Builder | Verdict |
+|---|---|---|---|---|
+| **`gemma4:e4b`** (default) | ✅ 4/4 | **15s** | ✅ ~12 min, best page | Fastest on quick tasks, best quality |
+| `qwen3.5:9b` | ✅ 4/4 | 19.5s | ✅ ~7 min | Reliable all-rounder |
+| `gpt-oss:20b` | 3/4 | 48s | ✅ ~29.5 min, thinnest page | Too slow / memory-tight on 16 GB |
+| *your model here* | | | | [Share your result](https://github.com/anurag-devx/offline-agent/issues/new?template=tested_on.md) |
+
+\* General Assistant, File Helper, File Sorter, Math Helper.
 
 ## Quick start
 
@@ -147,7 +153,7 @@ Bigger models are more reliable, smaller ones faster.
 pip install git+https://github.com/anurag-devx/offline-agent.git
 
 # 2. Get a model with tool calling
-ollama pull qwen3.5:9b
+ollama pull gemma4:e4b
 
 # 3. Open the Studio
 offline-agent studio

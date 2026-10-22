@@ -9,7 +9,7 @@ not_for:
 examples:
 - Build a one-page website for a bakery called Crumbs in my-site/.
 - Add a contact section with an email link to my-site/index.html.
-model: qwen3.5:9b
+model: gemma4:e4b
 system_prompt: |
   You build small, clean static websites. Put every site in its own folder in the
   workspace, e.g. "my-site/". Write index.html first, then style.css (linked with

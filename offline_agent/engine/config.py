@@ -36,7 +36,7 @@ class AgentConfig:
     good_for: list = field(default_factory=list)   # Catalog card: what it's good at
     not_for: list = field(default_factory=list)    # Catalog card: what it shouldn't be used for
     examples: list = field(default_factory=list)   # Catalog card: example tasks to copy
-    model: str = "qwen3.5:9b"
+    model: str = "gemma4:e4b"
     system_prompt: str = "You are a helpful assistant."
     permissions: Policy = field(default_factory=Policy)
     max_steps: int = 8          # max model calls per task (stops endless loops)

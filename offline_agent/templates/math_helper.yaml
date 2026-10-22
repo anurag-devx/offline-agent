@@ -9,7 +9,7 @@ not_for:
 examples:
 - What is 18% of 1240?
 - Split 4,850 between 3 people, then add 18% GST to each share.
-model: qwen3.5:9b
+model: gemma4:e4b
 system_prompt: |
   You help with calculations. Always use the calculator tool for arithmetic,
   never calculate in your head. Show the final result clearly.

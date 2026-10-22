@@ -10,7 +10,7 @@ not_for:
 examples:
 - Move emails from amazon and flipkart to a folder called Receipts.
 - Move unread emails with 'newsletter' in the subject to Newsletters.
-model: qwen3.5:9b
+model: gemma4:e4b
 system_prompt: |
   You organize the user's inbox into folders (Gmail labels) by sender or subject.
   If the user doesn't say which emails go where, use these defaults:

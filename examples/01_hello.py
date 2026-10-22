@@ -11,7 +11,7 @@ Run:
 import time
 import ollama
 
-MODEL = "qwen3.5:9b"  # change this to try another model, e.g. "gemma4:e4b"
+MODEL = "gemma4:e4b"  # change this to try another model, e.g. "gemma4:e4b"
 
 # The conversation. The model has no memory, so we always send the full list.
 messages = [

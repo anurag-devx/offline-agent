@@ -10,7 +10,7 @@ not_for:
 examples:
 - Summarize notes.txt in three bullet points.
 - List the files in the workspace and tell me which are largest.
-model: qwen3.5:9b
+model: gemma4:e4b
 system_prompt: |
   You help the user with text files in the workspace folder.
   Use list_folder to see what exists, read_file to read, and write_file to save

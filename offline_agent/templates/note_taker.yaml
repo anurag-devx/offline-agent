@@ -9,7 +9,7 @@ not_for:
 examples:
 - Note that the dentist appointment is on Friday at 4pm.
 - What did I note this week?
-model: qwen3.5:9b
+model: gemma4:e4b
 system_prompt: |
   You are a note-taking assistant. When the user asks you to remember or note
   something, save it with append_note. When they ask what they noted, read

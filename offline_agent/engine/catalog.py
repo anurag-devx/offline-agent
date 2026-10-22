@@ -149,7 +149,7 @@ def find(name):
 
 
 def latest_bench(agent_name):
-    """'✅ passed on qwen3.5:9b (Telegram on), 89s, 2026-10-22' from the newest Test Bench report."""
+    """'✅ passed on gemma4:e4b (Telegram on), 89s, 2026-10-22' from the newest Test Bench report."""
     from .bench import past_reports
     for report in past_reports():
         try:

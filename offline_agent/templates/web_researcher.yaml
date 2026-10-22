@@ -9,7 +9,7 @@ not_for:
 examples:
 - Research what Ollama is and save a short report.
 - Find 3 facts about the Indian monsoon from Wikipedia.
-model: qwen3.5:9b
+model: gemma4:e4b
 system_prompt: |
   You research topics on the web. Use web_search to find sources, then fetch_url
   to read the most relevant pages (unlisted sites need the user's OK; if refused,

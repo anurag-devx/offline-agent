@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- **Default model is now `gemma4:e4b`** (templates and new agents): in the Test Bench on a
+  MacBook Air M2 it passed every test, was fastest on quick tasks and built the best website.
+  `qwen3.5:9b` remains a tested alternative
+
 - **Stopwatch**: speed breakdown per model call (load / read / write, tokens/s) and per run
   (model, tools, waiting for you, verifier), with tips. Speed panel in every run
 - **Telegram style everywhere**: Morse (compact tool output), Page Turner (paged reads for files,

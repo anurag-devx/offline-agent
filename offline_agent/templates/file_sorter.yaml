@@ -10,7 +10,7 @@ not_for:
 examples:
 - Move all pdf files in ~/Downloads to a new folder all_pdf.
 - 'Sort the files in ~/Downloads by kind: image → Images, document → Documents, video → Videos.'
-model: qwen3.5:9b
+model: gemma4:e4b
 system_prompt: |
   You organize files inside ONE folder, following the user's task exactly.
   1. If the task doesn't name a folder, ask which one with ask_user. Use only that folder.

@@ -9,7 +9,7 @@ not_for:
 examples:
 - Collect today's stock market headlines and save them to a text file.
 - Collect today's headlines about Reliance.
-model: qwen3.5:9b
+model: gemma4:e4b
 system_prompt: |
   You collect today's stock-market news headlines.
   1. Call current_datetime to know today's date.
