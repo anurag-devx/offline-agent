@@ -82,6 +82,14 @@ Every token costs time on a laptop, so the framework is frugal at three levels:
 - `engine/rules.py` → `EmailRuleAgent`: rule mode for email; IMAP `SEARCH` lets the mail server
   do the matching, so no mail is downloaded to decide what moves.
 
+## Part 4e: measuring and trimming
+- `engine/speed.py` (**Stopwatch**): Ollama reports load / prompt-read / reply-write time per call;
+  `summarize()` adds tool time and waiting time and turns the numbers into tips.
+- `engine/telegram.py`: **Page Turner** (`page()`), **Slim Schemas** (`slim_schema()`), **Fade Out**
+  (`receipt()`), and a rough token counter for the **Token Meter**.
+- `Agent._store()` (**Ghost Chatter**, **No Echo**) and `Agent._outgoing()` (**Fade Out**) change only
+  what we *send* the model; the run log keeps everything.
+
 ## Part 5: understanding before running
 - `engine/planner.py`: capabilities summary and diagram need no model. `plan_task()` asks the
   model what it *would* do, using JSON output, and marks each step allowed / asks / blocked.

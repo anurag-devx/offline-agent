@@ -111,8 +111,8 @@ def run_tool(name, args, allowed=None):
     fn = TOOLS[name]["function"]
     try:
         return str(fn(**_coerce(fn, args or {})))
-    except Exception as e:
-        return f"Error: {type(e).__name__}: {e}"
+    except Exception as e:  # Morse: short errors; the class name only when there's no message
+        return f"Error: {e}" if str(e) else f"Error: {type(e).__name__}"
 
 
 def _coerce(fn, args):

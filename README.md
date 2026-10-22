@@ -72,6 +72,28 @@ max_steps: 80
 Templates (in `offline_agent/templates/`): General Assistant, Math Helper, File Helper, Note Taker, **File Sorter**,
 **Website Builder**, **Gmail Sorter**, **Web Researcher**, **News Collector**.
 
+## Speed features
+
+Every token costs time on a laptop: the model re-reads everything it's sent, on every call.
+These features keep that small. All are measured in each run's **⚡ Speed** panel.
+
+| Feature | What it does |
+|---|---|
+| **Clerk** (rule mode) | The model writes one rule; code does the work and checks it. 1 model call |
+| **Ledger** (job notes) | Plan + checklist with code evidence; finished steps' messages are dropped |
+| **Inspector** (verifier) | A read-only checker confirms the real result before "done" |
+| **Morse** | Tools answer in compact one-liners: `OK moved 138/140 ~/Downloads → all_pdf` |
+| **Page Turner** | Long files, pages and emails come one page at a time (`+N more chars, offset=…`) |
+| **Slim Schemas** | Tool descriptions are sent in short form |
+| **Ghost Chatter** | The model's narration between tool calls is dropped from history |
+| **No Echo** | The model's hidden thinking is never sent back to it |
+| **Fade Out** | Tool results older than two turns shrink to a one-line receipt |
+| **Word Limit** | Reply caps per call type (steps, plans, rules, verdicts) |
+| **Stopwatch** | Per call: load / read / write time, tokens and tokens per second |
+| **Token Meter** | What each call sent (instructions, tools, history, notes) and what was saved |
+
+Telegram-style features are on by default (Design → ⚙️ How it works → *Telegram style*).
+
 ## Requirements
 
 **The framework** is small (about 200 MB with its Python packages) and has no hardware limit of its own:

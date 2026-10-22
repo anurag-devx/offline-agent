@@ -40,7 +40,11 @@ class FakeModel:
                                         message=Message(role="assistant", content=json.dumps(value)))
             raise AssertionError(f"no fake reply for schema {list(format.get('properties', {}))}")
         reply = self.script.pop(0) if self.script else "done"
-        if isinstance(reply, str):
+        if isinstance(reply, dict):  # {"content", "calls": [(tool, args)], "thinking"}
+            msg = Message(role="assistant", content=reply.get("content", ""), thinking=reply.get("thinking"),
+                          tool_calls=[Message.ToolCall(function=Message.ToolCall.Function(name=n, arguments=a))
+                                      for n, a in reply.get("calls", [])] or None)
+        elif isinstance(reply, str):
             msg = Message(role="assistant", content=reply)
         else:
             msg = Message(role="assistant", content="", tool_calls=[

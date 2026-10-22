@@ -197,7 +197,10 @@ with tabs[0]:
                                 help="The agent plans steps, ticks them off with a one-line note; code adds evidence. "
                                      "Messages from finished steps are dropped, so the context stays small.",
                                 disabled=mode == "rules")
-        terse = b.checkbox("Telegram style (short replies)", base.terse, key=k("terse"), disabled=mode == "rules")
+        terse = b.checkbox("Telegram style", base.terse, key=k("terse"), disabled=mode == "rules",
+                           help="Short replies, plus: Slim Schemas (short tool descriptions), Ghost Chatter and "
+                                "No Echo (narration and hidden thinking dropped from history), Fade Out (old tool "
+                                "results shrink to one line). Tools always answer Morse-style.")
         max_reply = int(c.number_input("Max reply tokens (0 = no cap)", 0, 32768, base.max_reply_tokens, step=256,
                                        key=k("maxrep"), help="Caps each model reply. Raise it for agents that "
                                                              "write long files (websites)."))

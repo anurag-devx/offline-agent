@@ -15,6 +15,7 @@ from pathlib import Path
 from ..context import get_context
 from ..paths import HOME, WORKSPACE, is_inside, is_protected, resolve_folder
 from ..permissions import ASK, OFF
+from ..telegram import page
 from ..tools import tool
 
 MAX_READ = 20000
@@ -182,18 +183,19 @@ def list_folder(path: str = "", recursive: bool = False, kinds: str = "", extens
 
 
 @tool("files.read")
-def read_file(path: str):
-    """Read a text file.
+def read_file(path: str, offset: int = 0, limit: int = 6000):
+    """Read a text file, one page at a time.
 
     Args:
         path: Full path, e.g. "~/Downloads/notes.txt"
+        offset: Start at this character (from the previous page's "Next page" hint)
+        limit: Characters per page (default 6000)
     """
     p = resolve(path, "read")
     _check_type(p)
     if not p.is_file():
-        return f"Error: '{p}' does not exist. Use list_folder to see what is there."
-    text = p.read_text(encoding="utf-8", errors="replace")
-    return text[:MAX_READ] + ("\n...[truncated]" if len(text) > MAX_READ else "")
+        return f"Error: {short(p)} does not exist. Use list_folder to see what is there."
+    return page(p.read_text(encoding="utf-8", errors="replace"), offset, min(int(limit), MAX_READ), short(p))
 
 
 @tool("files.create")

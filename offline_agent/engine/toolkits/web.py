@@ -11,6 +11,7 @@ import urllib.request
 from html.parser import HTMLParser
 
 from ..context import get_context
+from ..telegram import page
 from ..tools import tool
 
 MAX_BYTES = 2_000_000
@@ -112,20 +113,20 @@ class _TextExtractor(HTMLParser):
 
 
 @tool("internet.read")
-def fetch_url(url: str):
-    """Read a web page and return its text. Only works for the agent's allowed domains.
+def fetch_url(url: str, offset: int = 0, limit: int = 4000):
+    """Read a web page as plain text, one page at a time. Only the agent's allowed sites.
 
     Args:
         url: Full address, e.g. "https://en.wikipedia.org/wiki/Python_(programming_language)"
+        offset: Start at this character (from the previous page's "Next page" hint)
+        limit: Characters per page (default 4000)
     """
     body, ctype = http_get(url)
-    if "html" not in ctype:
-        return body[:MAX_TEXT]
-    parser = _TextExtractor()
-    parser.feed(body)
-    text = parser.text()
-    out = (f"Title: {parser.title.strip()}\n\n" if parser.title.strip() else "") + text
-    return out[:MAX_TEXT] + ("\n...[truncated]" if len(out) > MAX_TEXT else "")
+    if "html" in ctype:
+        parser = _TextExtractor()
+        parser.feed(body)
+        body = (f"Title: {parser.title.strip()}\n" if parser.title.strip() else "") + parser.text()
+    return page(body, offset, min(int(limit), MAX_TEXT), "page")
 
 
 class _SearchParser(HTMLParser):
@@ -164,5 +165,6 @@ def web_search(query: str):
     parser = _SearchParser()
     parser.feed(body)
     if not parser.results:
-        return "No results."
-    return "\n".join(f"{i}. {t}\n   {h}" for i, (t, h) in enumerate(parser.results[:8], 1))
+        return "OK no results"
+    return f"OK {len(parser.results[:8])} results\n" + "\n".join(
+        f"{i}. {t[:90]} | {h}" for i, (t, h) in enumerate(parser.results[:8], 1))

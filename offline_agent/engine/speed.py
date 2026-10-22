@@ -55,6 +55,19 @@ def summarize(run):
         if write > read and write > 2:
             tips.append(f"Writing replies is the biggest model cost ({write:.0f}s for {output_tokens:,} tokens). "
                         "Ask for shorter replies (telegram style, lower max reply tokens) or let code write the text.")
+    sent, saved = {}, {}
+    for e in calls:
+        for k, v in (e.get("sent") or {}).items():
+            sent[k] = sent.get(k, 0) + v
+        for k, v in (e.get("saved") or {}).items():
+            saved[k] = saved.get(k, 0) + v
+    sent_total, saved_total = sum(sent.values()), sum(saved.values())
+    if sent_total and sent.get("tools", 0) > 0.4 * sent_total:
+        tips.append(f"Tool descriptions are {sent['tools'] / sent_total:.0%} of what each call sends. "
+                    "Turn off permissions this agent doesn't need: fewer tools, less to read.")
+    if sent_total and sent.get("history", 0) > 0.5 * sent_total:
+        tips.append(f"Conversation history is {sent['history'] / sent_total:.0%} of what we send. "
+                    "Turn on Job notes (finished steps get dropped) or start a new run for new tasks.")
     if len(calls) >= 5:
         tips.append(f"{len(calls)} model calls. Rule mode or reusing a verified plan can cut this to 1 or 0.")
     if total and wait > 0.3 * total:
@@ -66,6 +79,8 @@ def summarize(run):
             "read_tps": round(prompt_tokens / read, 1) if read else 0.0,
             "write_tps": round(output_tokens / write, 1) if write else 0.0,
             "parts": {k: round(v, 1) for k, v in parts.items()}, "tips": tips,
+            "sent": sent, "saved": saved,
+            "saved_pct": round(saved_total / (sent_total + saved_total) * 100) if sent_total + saved_total else 0,
             "per_call": [{"#": i, "what": e.get("purpose") or f"step {e.get('step')}",
                           "load s": e.get("load_s", 0), "read s": e.get("read_s", 0),
                           "read tokens": e.get("prompt_tokens", 0), "read tok/s": e.get("read_tps", 0),

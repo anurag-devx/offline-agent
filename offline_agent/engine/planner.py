@@ -143,7 +143,7 @@ def plan_task(cfg, task):
         "If a step needs a tool you are not allowed to use, still name it.")
     response = llm.chat(cfg.model, [{"role": "system", "content": prompt},
                                     {"role": "user", "content": task}],
-                        temperature=0, think=False, format=PLAN_SCHEMA)
+                        temperature=0, think=False, format=PLAN_SCHEMA, num_predict=500)  # Word Limit
     plan = json.loads(response.message.content)
     for s in plan.get("steps", []):
         tool = (s.get("tool") or "none").strip()
@@ -199,7 +199,7 @@ def generate_agent(description, model):
         f"Capabilities:\n{catalog}\nAlways available: calculator, current_datetime.")
     response = llm.chat(model, [{"role": "system", "content": prompt},
                                 {"role": "user", "content": description}],
-                        temperature=0.2, think=False, format=GENERATE_SCHEMA)
+                        temperature=0.2, think=False, format=GENERATE_SCHEMA, num_predict=900)  # Word Limit
     data = json.loads(response.message.content)
 
     pol = Policy()

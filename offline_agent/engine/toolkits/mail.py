@@ -11,6 +11,7 @@ from email.header import decode_header, make_header
 
 from ..context import get_context
 from ..credentials import load_credentials
+from ..telegram import page
 from ..tools import tool
 
 MAX_BODY = 4000
@@ -34,6 +35,23 @@ def _connect():
 def _q(folder):
     """IMAP needs folder names quoted, e.g. "Receipts 2026"."""
     return '"' + folder.replace("\\", "\\\\").replace('"', '\\"') + '"'
+
+
+def _short_date(value):
+    """Morse: 'Mon, 20 Oct 2026 14:05:00 +0530' -> '20 Oct 14:05'."""
+    try:
+        from email.utils import parsedate_to_datetime
+        return parsedate_to_datetime(value).strftime("%d %b %H:%M")
+    except Exception:
+        return _h(value)[:16]
+
+
+def _sender(value):
+    """Morse: 'Amazon <ship@amazon.in>' -> 'Amazon (amazon.in)'."""
+    name, _, addr = _h(value).rpartition("<")
+    name, addr = name.strip().strip('"'), addr.rstrip(">").strip()
+    domain = addr.split("@")[-1] if "@" in addr else ""
+    return f"{name or addr}" + (f" ({domain})" if domain and name else "")
 
 
 def _h(value):
@@ -121,20 +139,22 @@ def email_list(folder: str = "INBOX", limit: int = 20, unread_only: bool = False
                 continue
             uid = re.search(rb"UID (\d+)", item[0])
             msg = email.message_from_bytes(item[1])
-            rows.append(f"uid={uid.group(1).decode() if uid else '?'} | {_h(msg['Date'])} | "
-                        f"{_h(msg['From'])} | {_h(msg['Subject'])}")
-        return "\n".join(rows)
+            rows.append(f"{uid.group(1).decode() if uid else '?'} | {_short_date(msg['Date'])} | "
+                        f"{_sender(msg['From'])} | {_h(msg['Subject'])[:80]}")
+        return f"OK {len(rows)} emails in {folder} (uid | date | from | subject)\n" + "\n".join(rows)
     finally:
         conn.logout()
 
 
 @tool("email.read")
-def email_read(uid: str, folder: str = "INBOX"):
-    """Read one email's headers and text. Does not mark it read.
+def email_read(uid: str, folder: str = "INBOX", offset: int = 0, limit: int = 1500):
+    """Read one email's headers and text, one page at a time. Does not mark it read.
 
     Args:
         uid: The uid from email_list
         folder: Folder the email is in, default "INBOX"
+        offset: Start at this character of the body (from the "Next page" hint)
+        limit: Characters per page (default 1500)
     """
     conn = _connect()
     try:
@@ -145,8 +165,8 @@ def email_read(uid: str, folder: str = "INBOX"):
             return f"Error: no email with uid {uid} in {folder}."
         msg = email.message_from_bytes(raw)
         body = re.sub(r"\n\s*\n+", "\n\n", _body_text(msg)).strip()
-        return (f"From: {_h(msg['From'])}\nTo: {_h(msg['To'])}\nDate: {_h(msg['Date'])}\n"
-                f"Subject: {_h(msg['Subject'])}\n\n{body[:MAX_BODY]}")
+        return (f"From: {_sender(msg['From'])} · {_short_date(msg['Date'])}\nSubject: {_h(msg['Subject'])}\n\n"
+                + page(body, offset, min(int(limit), MAX_BODY), "email"))
     finally:
         conn.logout()
 

@@ -84,7 +84,8 @@ def verify(cfg, task, events, granted_folders=(), should_stop=None, notes=""):
     try:
         resp = llm.chat(vcfg.model, checker.messages + [{"role": "user", "content":
                         "Now give your verdict as JSON: complete (true/false), reason, missing."}],
-                        temperature=0, think=False, format=VERDICT_SCHEMA, num_ctx=cfg.context_length)
+                        temperature=0, think=False, format=VERDICT_SCHEMA, num_ctx=cfg.context_length,
+                        num_predict=250)  # Word Limit: a verdict is short
         verdict = json.loads(resp.message.content)
     except Exception as ex:
         verdict = {"complete": False, "reason": f"Verifier failed: {ex}", "missing": "unknown"}

@@ -23,6 +23,7 @@ from .ledger import Ledger
 from .llm import chat
 from .memory import recall_block
 from .speed import timing
+from .telegram import receipt, slim_schema, tokens
 from .permissions import ASK
 from .tools import (get_schemas, internal_tools, is_internal, permission_of, preview_tool, run_tool,
                     tools_for)
@@ -63,6 +64,7 @@ class Agent:
         self.state = {"granted_folders": [], "granted_domains": [], "changes": 0}
         self.auto_approved = set()  # tools you chose "approve all" for, this run only
         self.ledger = None
+        self.kept_out = 0           # tokens Ghost Chatter + No Echo kept out of history (saved on every call)
 
     # ------------------------------------------------------------ helpers
     def _add(self, message, tag):
@@ -74,6 +76,55 @@ class Agent:
         if decision == "all":
             self.auto_approved.add(name)
         return decision
+
+    def _store(self, message):
+        """Ghost Chatter + No Echo: keep the tool calls, drop narration and hidden thinking from history."""
+        if not self.config.terse:
+            return message
+        update = {}
+        thinking = getattr(message, "thinking", None)
+        if thinking:
+            update["thinking"] = None
+            self.kept_out += tokens(thinking)
+        if message.tool_calls and message.content:
+            update["content"] = ""
+            self.kept_out += tokens(message.content)
+        return message.model_copy(update=update) if update else message
+
+    def _outgoing(self, notes_on):
+        """What we send this call. Fade Out: tool results the model has already answered at least
+        twice since shrink to a one-line receipt (their facts live in the notes and the run log)."""
+        msgs, faded = list(self.messages), 0
+        if self.config.terse:
+            later, out = 0, []
+            for m in reversed(msgs):
+                role = m["role"] if isinstance(m, dict) else m.role
+                if role == "assistant":
+                    later += 1
+                if role == "tool" and later >= 2 and len(m["content"]) > 200:
+                    short = receipt(m["content"])
+                    faded += tokens(m["content"]) - tokens(short)
+                    m = {**m, "content": short}
+                out.append(m)
+            msgs = out[::-1]
+        notes = self.ledger.for_model() if notes_on else ""
+        if notes:
+            msgs.append({"role": "user", "content": notes})
+        return msgs, faded, notes
+
+    def _meter(self, msgs, schemas, notes, faded):
+        """Token Meter: roughly how many tokens each part of this call is, and what we saved."""
+        def text(m):
+            if isinstance(m, dict):
+                return str(m.get("content") or "")
+            calls = " ".join(f"{c.function.name}{json.dumps(dict(c.function.arguments or {}))}"
+                             for c in (m.tool_calls or []))
+            return (m.content or "") + calls
+        system = text(msgs[0]) if msgs else ""
+        history = sum(tokens(text(m)) for m in msgs[1:]) - (tokens(notes) if notes else 0)
+        return ({"instructions": tokens(system), "tools": tokens(json.dumps(schemas)), "history": max(0, history),
+                 "notes": tokens(notes) if notes else 0},
+                {"slim_schemas": self._slim_saved, "fade_out": faded, "ghost_echo": self.kept_out})
 
     def _call(self, messages, tools):
         cfg = self.config
@@ -111,6 +162,11 @@ class Agent:
         if notes_on:
             names = names + internal_tools()
         schemas = get_schemas(names)
+        self._slim_saved = 0
+        if cfg.terse:  # Slim Schemas: short tool descriptions, sent on every call
+            slim = [slim_schema(x) for x in schemas]
+            self._slim_saved = tokens(json.dumps(schemas)) - tokens(json.dumps(slim))
+            schemas = slim
         ctx = ToolContext(cfg, self.state, approver=self._approve, asker=self.asker)
         ctx.job = self.job_id
         set_context(ctx)
@@ -145,7 +201,8 @@ class Agent:
                 yield {"type": "stopped", "content": "Stopped by user.", "step": step}
                 return
 
-            outgoing = self.messages + ([{"role": "user", "content": self.ledger.for_model()}] if notes_on else [])
+            outgoing, faded, notes = self._outgoing(notes_on)
+            sent, saved = self._meter(outgoing, schemas, notes, faded)
             started = time.time()
             try:
                 response = self._call(outgoing, schemas)
@@ -154,11 +211,11 @@ class Agent:
                 return
             message = response.message
             tag = (self.ledger.current().n if self.ledger.current() else 0) if notes_on else None
-            self._add(message, tag)
+            self._add(self._store(message), tag)
             yield {
                 "type": "model_call", "step": step,
                 "seconds": round(time.time() - started, 1),
-                **timing(response),
+                **timing(response), "sent": sent, "saved": saved,
                 "thinking": (getattr(message, "thinking", None) or "")[:4000],
                 "content": message.content or "",
             }

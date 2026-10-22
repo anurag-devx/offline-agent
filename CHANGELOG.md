@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+- **Stopwatch**: speed breakdown per model call (load / read / write, tokens/s) and per run
+  (model, tools, waiting for you, verifier), with tips. Speed panel in every run
+- **Telegram style everywhere**: Morse (compact tool output), Page Turner (paged reads for files,
+  web pages, emails), Slim Schemas, Ghost Chatter, No Echo, Fade Out, Word Limit
+- **Token Meter**: what each call sent and what the Telegram features saved
+- Installs work with the setuptools already in a venv (`pip install -e . --no-build-isolation`)
+
 ## v0.2.0 (2026-10-20)
 
 - **Rule mode for email**: the model writes sender/subject rules once; the mail server matches

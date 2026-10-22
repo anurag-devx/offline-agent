@@ -161,14 +161,24 @@ def _speed(run, key):
         return
     with st.expander(f"⚡ Speed · {sp['total_s']:.0f}s total · {sp['model_s']:.0f}s in the model · "
                      f"{sp['calls']} model calls", expanded=False):
+        import pandas as pd
         parts = {k: v for k, v in sp["parts"].items() if v > 0}
         if parts:
-            import pandas as pd
             st.bar_chart(pd.DataFrame({"seconds": parts}), horizontal=True, y_label="", x_label="seconds")
         a, b, c = st.columns(3)
         a.metric("Reading speed", f"{sp['read_tps']:.0f} tok/s", help="How fast the model reads the prompt")
         b.metric("Writing speed", f"{sp['write_tps']:.0f} tok/s", help="How fast the model writes its reply")
         c.metric("Tokens", f"{sp['prompt_tokens']:,} in · {sp['output_tokens']:,} out")
+        if sp["sent"]:
+            names = {"instructions": "Instructions", "tools": "Tool descriptions", "history": "History",
+                     "notes": "Job notes"}
+            st.markdown("**📡 Token Meter**: what the model had to read, over all calls (estimated)")
+            st.bar_chart(pd.DataFrame({"tokens": {names.get(k, k): v for k, v in sp["sent"].items() if v}}),
+                         horizontal=True, y_label="", x_label="tokens")
+            feats = {"slim_schemas": "Slim Schemas", "fade_out": "Fade Out", "ghost_echo": "Ghost Chatter + No Echo"}
+            saved = " · ".join(f"{feats.get(k, k)} {v:,}" for k, v in sp["saved"].items() if v)
+            if saved:
+                st.caption(f"✂️ Saved by Telegram style: about {sp['saved_pct']}% · {saved} tokens")
         for tip in sp["tips"]:
             st.markdown(f"- 💡 {tip}")
         st.dataframe(sp["per_call"], hide_index=True)
