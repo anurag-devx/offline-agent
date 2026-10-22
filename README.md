@@ -5,7 +5,7 @@
 Build, preview, validate, run and track agents on local models with [Ollama](https://ollama.com).
 No cloud, no API keys, no accounts. Your prompts and data never go to an AI company.
 
-[![tests](https://github.com/anurag-devx/offline-agent/actions/workflows/tests.yml/badge.svg)](https://github.com/anurag-devx/offline-agent/actions/workflows/tests.yml)
+[![tests](https://github.com/anurag-devx/offline-agent/actions/workflows/tests.yml/badge.svg?branch=main)](https://github.com/anurag-devx/offline-agent/actions/workflows/tests.yml)
 ![license](https://img.shields.io/badge/license-MIT-blue)
 ![python](https://img.shields.io/badge/python-3.10%2B-blue)
 
