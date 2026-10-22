@@ -24,14 +24,16 @@ if not job or job.done:
                    and not case_for(a, agents[a]).get("smoke")]
         chosen = st.multiselect("Agents", list(agents), default)
         models = st.multiselect("Models (empty = each agent's own model)", llm.list_models())
-        c1, c2 = st.columns(2)
+        c1, c2, c5 = st.columns(3)
         telegram = c1.multiselect("Telegram style", ["on", "off"], ["on"])
         voice = c2.multiselect("Full Voice", ["on", "off"], ["on"])
+        notes = c5.multiselect("Job notes", ["on", "off"], [], help="Empty = as each agent is saved")
         c3, c4 = st.columns(2)
         internet = c3.checkbox("Include internet tests (News Collector, Web Researcher)")
         email = c4.checkbox("Include email tests (dry: nothing is moved)")
-        variants = [" + ".join(x for x in (f"Telegram {t}" if t else "", f"Full Voice {v}" if v else "") if x)
-                    for t, v in itertools.product(telegram or [""], voice or [""])]
+        variants = [" + ".join(x for x in (f"Telegram {t}" if t else "", f"Full Voice {v}" if v else "",
+                                           f"Job notes {n}" if n else "") if x)
+                    for t, v, n in itertools.product(telegram or [""], voice or [""], notes or [""])]
         total = len(chosen) * max(1, len(models)) * max(1, len(variants))
         st.caption(f"{total} test runs. Local models are slow: expect about 1–5 minutes per run.")
         if st.form_submit_button("▶ Run bench", type="primary", disabled=not chosen):

@@ -34,6 +34,7 @@ TIMEOUT = 900  # seconds per case
 VARIANTS = {  # name -> config overrides
     "Telegram on": {"terse": True}, "Telegram off": {"terse": False},
     "Full Voice on": {"full_voice": True}, "Full Voice off": {"full_voice": False},
+    "Job notes on": {"plan_steps": True}, "Job notes off": {"plan_steps": False},
 }
 
 

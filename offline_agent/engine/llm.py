@@ -79,7 +79,30 @@ def chat(model, messages, tools=None, temperature=0.2, think=False, format=None,
         # Retry once without the cap rather than return an empty answer.
         kwargs["options"] = {k: v for k, v in kwargs["options"].items() if k != "num_predict"}
         resp = ollama.chat(model=model, messages=messages, tools=tools or None, **kwargs)
+    if format and not (resp.message.content or "").strip():
+        # Some reasoning models (gpt-oss) put the structured reply inside their reasoning.
+        found = _json_in(getattr(resp.message, "thinking", None) or "")
+        if found:
+            resp = resp.model_copy(update={"message": resp.message.model_copy(update={"content": found})})
     return resp
+
+
+def _json_in(text):
+    """The last complete {...} block in a text, if it parses as JSON."""
+    import json
+    end = text.rfind("}")
+    while end != -1:
+        depth = 0
+        for i in range(end, -1, -1):
+            depth += {"}": 1, "{": -1}.get(text[i], 0)
+            if depth == 0:
+                try:
+                    json.loads(text[i:end + 1])
+                    return text[i:end + 1]
+                except ValueError:
+                    break
+        end = text.rfind("}", 0, end)
+    return ""
 
 
 def chat_stream(model, messages, temperature=0.2, think=False):

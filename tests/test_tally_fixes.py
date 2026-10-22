@@ -51,3 +51,17 @@ def test_gpt_oss_gets_low_reasoning(monkeypatch):
     monkeypatch.setattr(llm, "capabilities", lambda m: ("completion", "tools", "thinking"))
     assert llm._options("gpt-oss:20b", 0.2, False)["think"] == "low"
     assert llm._options("qwen3.5:9b", 0.2, False)["think"] is False
+
+
+def test_json_found_in_reasoning_when_reply_is_empty(monkeypatch):
+    def chat(model, messages, tools=None, **kw):
+        return ChatResponse(model=model, done_reason="stop", message=Message(
+            role="assistant", content="", thinking='We need steps. Output: {"steps": ["Read file"]} done.'))
+    monkeypatch.setattr(ollama, "chat", chat)
+    monkeypatch.setattr(llm, "capabilities", lambda m: ())
+    assert llm.chat("gpt-oss:20b", [], format={"type": "object"}).message.content == '{"steps": ["Read file"]}'
+
+
+def test_job_notes_variant():
+    from offline_agent.engine.bench import VARIANTS
+    assert VARIANTS["Job notes off"] == {"plan_steps": False}

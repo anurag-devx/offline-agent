@@ -197,6 +197,7 @@ def main(argv=None):
     p_bench.add_argument("--models", default="", help="comma separated models (default: each agent's own)")
     p_bench.add_argument("--telegram", default="on", help="on, off or on,off")
     p_bench.add_argument("--full-voice", default="on", help="on, off or on,off")
+    p_bench.add_argument("--notes", default="", help="job notes: on, off or on,off (default: as saved)")
     p_bench.add_argument("--internet", action="store_true", help="include internet tests")
     p_bench.add_argument("--email", action="store_true", help="include email tests (dry)")
     p_info = sub.add_parser("info", help="what an agent or tool does")
@@ -252,7 +253,9 @@ def bench(args):
         [a for a in found if not case_for(a, found[a]).get("needs") and not case_for(a, found[a]).get("smoke")]
     tel = [x.strip() for x in args.telegram.split(",") if x.strip()]
     voice = [x.strip() for x in args.full_voice.split(",") if x.strip()]
-    variants = [f"Telegram {t} + Full Voice {v}" for t, v in itertools.product(tel, voice)]
+    notes = [x.strip() for x in args.notes.split(",") if x.strip()] or [""]
+    variants = [" + ".join(x for x in (f"Telegram {t}", f"Full Voice {v}", f"Job notes {n}" if n else "") if x)
+                for t, v, n in itertools.product(tel, voice, notes)]
     models = [m.strip() for m in args.models.split(",") if m.strip()] or [""]
     job = start_job(get_manager(), agents=names, models=models, variants=variants,
                     internet=args.internet, email=args.email)
