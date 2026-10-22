@@ -146,7 +146,7 @@ Builds a small static website (HTML/CSS/JS) in a workspace folder.
 **Not for:** Web apps with a backend or database · Large multi-page sites
 **Needs:** Files: read, create, modify in the workspace. Asks before: modify. Internet: reads pages on developer.mozilla.org. Can ask you questions during a run.
 **How it works:** Agent: the model works step by step with tools
-**Features:** Job notes · Telegram style · Full Voice
+**Features:** Job notes · Inspector (verifier) · Telegram style · Full Voice
 **Tools:** `calculator`, `current_datetime`, `fetch_url`, `read_feed`, `list_folder`, `read_file`, `create_folder`, `write_file`, `overwrite_file`, `append_note`, `ask_user`
 
 **Try:**

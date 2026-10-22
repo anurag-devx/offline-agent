@@ -19,7 +19,7 @@ from pathlib import Path
 import yaml
 
 from . import audit
-from .config import AGENTS_DIR, ROOT, TEMPLATES_DIR, WORKSPACE, list_configs, load_agent
+from .config import AGENTS_DIR, ROOT, TEMPLATES_DIR, WORKSPACE, VerifyConfig, list_configs, load_agent
 from .credentials import email_configured
 from .paths import PKG_DIR
 from .permissions import OFF
@@ -30,6 +30,7 @@ SANDBOX_DIR = WORKSPACE / "_bench"
 CASES_FILE = PKG_DIR / "bench_cases.yaml"
 SMOKE = {"task": "In one or two sentences, what can you help me with?", "checks": [{"answer_not_empty": True}]}
 TIMEOUT = 900  # seconds per case
+RETRY_PENALTY = 10  # score points lost each time the Inspector sends the agent back
 
 VARIANTS = {  # name -> config overrides
     "Telegram on": {"terse": True}, "Telegram off": {"terse": False},
@@ -89,10 +90,27 @@ def run_checks(checks, run, sandbox):
                 out.append(("answer is not empty", bool(answer.strip()), ""))
             elif kind == "file_exists":
                 out.append((f"{arg} exists", (sandbox / arg).exists(), ""))
-            elif kind == "file_contains":
+            elif kind in ("file_contains", "file_not_contains"):
                 p = sandbox / arg["path"]
-                ok = p.is_file() and str(arg["text"]).lower() in p.read_text(errors="replace").lower()
-                out.append((f"{arg['path']} contains \"{arg['text']}\"", ok, "" if p.exists() else "file missing"))
+                words = arg["text"] if isinstance(arg["text"], list) else [arg["text"]]
+                body = p.read_text(errors="replace").lower() if p.is_file() else ""
+                found = [w for w in words if str(w).lower() in body]
+                if kind == "file_contains":
+                    missing = [w for w in words if w not in found]
+                    out.append((f"{arg['path']} contains " + ", ".join(f'"{w}"' for w in words),
+                                p.is_file() and not missing,
+                                "file missing" if not p.is_file() else ("missing: " + ", ".join(map(str, missing))
+                                                                        if missing else "")))
+                else:
+                    out.append((f"{arg['path']} has no " + ", ".join(f'"{w}"' for w in words),
+                                p.is_file() and not found,
+                                "file missing" if not p.is_file() else ("found: " + ", ".join(map(str, found))
+                                                                        if found else "")))
+            elif kind == "count_text":
+                p = sandbox / arg["path"]
+                n = p.read_text(errors="replace").lower().count(str(arg["text"]).lower()) if p.is_file() else 0
+                out.append((f"{arg['path']} has \"{arg['text']}\" ≥{arg.get('at_least', 1)} times",
+                            n >= arg.get("at_least", 1), f"found {n}"))
             elif kind == "file_glob":
                 hits = [Path(h) for h in glob.glob(str(sandbox / arg["pattern"]))]
                 lines = max((len([x for x in h.read_text(errors="replace").splitlines() if x.strip()])
@@ -138,7 +156,17 @@ def prepare(cfg, case, sandbox):
     pol.files.ask_for_other_folders = False
     pol.internet.other_domains = "block"
     pol.memory.write, pol.memory.run_summaries = OFF, False
+    if case.get("verify") is not None:  # a case can switch the Inspector on/off and give it criteria
+        cfg.verify = VerifyConfig.from_dict(case["verify"])
     return cfg
+
+
+def score(checks, attempts):
+    """0-100: share of checks passed, minus a penalty for each Inspector send-back."""
+    if not checks:
+        return 0
+    base = 100 * sum(1 for _, ok, _ in checks if ok) / len(checks)
+    return max(0, round(base - RETRY_PENALTY * max(0, attempts - 1)))
 
 
 def run_case(manager, cfg, case, sandbox, should_stop=lambda: False, timeout=TIMEOUT):
@@ -157,6 +185,8 @@ def run_case(manager, cfg, case, sandbox, should_stop=lambda: False, timeout=TIM
         checks.insert(0, ("run completed", run.status == "completed", run.status))
     sp = summarize(run)
     return {"run_id": run.id, "status": run.status, "passed": all(ok for _, ok, _ in checks),
+            "score": score(checks, run.attempts), "inspector": cfg.verify.enabled,
+            "retries": max(0, run.attempts - 1), "verified": run.verified,
             "checks": [{"check": n, "ok": ok, "detail": d} for n, ok, d in checks],
             "seconds": round(run.duration(), 1), "model_s": sp["model_s"], "calls": sp["calls"],
             "prompt_tokens": sp["prompt_tokens"], "output_tokens": sp["output_tokens"],
@@ -252,24 +282,31 @@ def compare(results):
                      "pass_rate": round(100 * sum(1 for r in rs if r["passed"]) / len(rs)),
                      "avg_seconds": avg("seconds"), "avg_model_s": avg("model_s"), "avg_calls": avg("calls"),
                      "avg_tokens_in": avg("prompt_tokens"), "avg_tokens_out": avg("output_tokens"),
-                     "avg_saved_pct": avg("saved_pct")})
-    return sorted(rows, key=lambda x: (-x["pass_rate"], x["avg_seconds"]))
+                     "avg_saved_pct": avg("saved_pct"),
+                     "avg_score": round(sum(r.get("score", 0) for r in ran) / len(ran)) if ran else 0,
+                     "retries": sum(r.get("retries", 0) for r in ran)})
+    return sorted(rows, key=lambda x: (-x["pass_rate"], -x["avg_score"], x["avg_seconds"]))
 
 
 def report_markdown(data):
     lines = [f"# Test Bench {data['id']}", "", "## Comparison", "",
-             "| Model | Variant | Passed | Avg time | Avg model time | Avg calls | Avg tokens in/out | Saved |",
-             "|---|---|---|---|---|---|---|---|"]
+             "| Model | Variant | Passed | Score | Inspector retries | Avg time | Avg model time | Avg calls | "
+             "Avg tokens in/out | Saved |",
+             "|---|---|---|---|---|---|---|---|---|---|"]
     for s in data["summary"]:
-        lines.append(f"| {s['model']} | {s['variant']} | {s['passed']} | {s['avg_seconds']}s | {s['avg_model_s']}s | "
+        lines.append(f"| {s['model']} | {s['variant']} | {s['passed']} | {s.get('avg_score', '')} | "
+                     f"{s.get('retries', 0)} | {s['avg_seconds']}s | {s['avg_model_s']}s | "
                      f"{s['avg_calls']} | {s['avg_tokens_in']:.0f}/{s['avg_tokens_out']:.0f} | {s['avg_saved_pct']:.0f}% |")
-    lines += ["", "## Every test", "", "| Agent | Model | Variant | Result | Time | Calls | Failed checks |",
-              "|---|---|---|---|---|---|---|"]
+    lines += ["", f"Score = % of checks passed, minus {RETRY_PENALTY} for each Inspector send-back.",
+              "", "## Every test", "",
+              "| Agent | Model | Variant | Result | Score | Retries | Time | Calls | Failed checks |",
+              "|---|---|---|---|---|---|---|---|---|"]
     for r in data["results"]:
         res = "skipped" if r.get("passed") is None else ("✅ pass" if r["passed"] else "❌ fail")
         failed = "; ".join(c["check"] + (f" ({c['detail']})" if c["detail"] else "")
                            for c in r.get("checks", []) if not c["ok"]) or r.get("why", "")
-        lines.append(f"| {r['agent']} | {r['model']} | {r['variant']} | {res} | {r.get('seconds', '')}s | "
+        lines.append(f"| {r['agent']} | {r['model']} | {r['variant']} | {res} | {r.get('score', '')} | "
+                     f"{r.get('retries', '') if r.get('inspector') else '–'} | {r.get('seconds', '')}s | "
                      f"{r.get('calls', '')} | {failed} |")
     return "\n".join(lines) + "\n"
 

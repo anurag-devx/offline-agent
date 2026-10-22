@@ -29,10 +29,51 @@ cases:
       - {file_exists: photo.jpg}
 
   - agent: Website Builder
-    task: Build a one-page website for a bakery called Crumbs in the folder site/ inside {sandbox}.
+    task: |
+      Build a complete one-page website for a neighbourhood bakery called "Crumbs" in the folder
+      site/ inside {sandbox}.
+
+      Files: site/index.html and site/style.css (linked from index.html). Add site/script.js only
+      if you use JavaScript. No external libraries, fonts or CDNs.
+
+      Sections, in this order, each a <section> with the given id:
+      1. Header (a <header>): the name "Crumbs", the tagline "Baked fresh every morning", and a
+         navigation bar linking to #menu, #about, #hours and #contact.
+      2. id="menu": at least 6 items. Each item has a name, a one-line description and a price in
+         rupees (for example ₹120). Include sourdough bread, croissants and a chocolate cake.
+      3. id="about": a short paragraph (3-4 sentences) about the bakery's story.
+      4. id="hours": opening hours in a table. Mon-Sat 7am-8pm, Sunday 8am-2pm.
+      5. id="contact": the address "12 Baker Street, Bengaluru", the phone number +91 98765 43210,
+         and an email link to hello@crumbs.in (mailto:).
+      6. Footer (a <footer>): "© 2026 Crumbs".
+
+      Design: warm colours (cream background, brown text, one accent colour), readable font sizes,
+      the menu as a grid of cards, and a responsive layout that works on a phone (use a media query
+      and <meta name="viewport" content="width=device-width, initial-scale=1">).
+
+      Quality: write every file completely. No placeholder text such as "lorem ipsum", "TODO" or
+      "your text here". When you are done, list the files you created.
+    verify:
+      enabled: true
+      max_attempts: 2
+      criteria: |
+        Read site/index.html and site/style.css. Complete only if: index.html links style.css;
+        it has a header with "Crumbs", the tagline and nav links to #menu, #about, #hours, #contact;
+        sections with ids menu, about, hours, contact; at least 6 menu items with ₹ prices including
+        sourdough, croissant and chocolate cake; an hours table; the address, phone and a
+        mailto:hello@crumbs.in link; a footer with © 2026 Crumbs; a viewport meta tag and a media
+        query in the CSS; and no placeholder text.
     checks:
       - {file_exists: site/index.html}
-      - {file_contains: {path: site/index.html, text: Crumbs}}
+      - {file_exists: site/style.css}
+      - {file_contains: {path: site/index.html, text: [Crumbs, Baked fresh every morning, style.css, name="viewport"]}}
+      - {file_contains: {path: site/index.html, text: ['id="menu"', 'id="about"', 'id="hours"', 'id="contact"', '<header', '<footer', '<table']}}
+      - {file_contains: {path: site/index.html, text: [href="#menu", href="#contact"]}}
+      - {file_contains: {path: site/index.html, text: [sourdough, croissant, chocolate cake, ₹]}}
+      - {count_text: {path: site/index.html, text: ₹, at_least: 6}}
+      - {file_contains: {path: site/index.html, text: [12 Baker Street, 98765 43210, mailto:hello@crumbs.in, © 2026 Crumbs]}}
+      - {file_contains: {path: site/style.css, text: ['@media']}}
+      - {file_not_contains: {path: site/index.html, text: [lorem ipsum, TODO, your text here]}}
 
   - agent: News Collector
     needs: internet

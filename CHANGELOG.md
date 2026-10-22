@@ -5,6 +5,11 @@
 - **Default model is now `gemma4:e4b`** (templates and new agents): in the Test Bench on a
   MacBook Air M2 it passed every test, was fastest on quick tasks and built the best website.
   `qwen3.5:9b` remains a tested alternative
+- Test Bench **score**: % of checks passed, minus 10 for each time the Inspector sent the agent back
+- Bench cases can switch the Inspector on with their own criteria; new checks `file_not_contains`,
+  `count_text`, and `file_contains` with a list (names what's missing)
+- Website Builder: detailed bench brief with 10 checks; the template now self-checks its work and has
+  the Inspector on (2 attempts)
 
 - **Stopwatch**: speed breakdown per model call (load / read / write, tokens/s) and per run
   (model, tools, waiting for you, verifier), with tips. Speed panel in every run

@@ -49,6 +49,7 @@ def show(results, live=False):
     if summary:
         st.subheader("Comparison")
         st.dataframe([{"Model": s["model"], "Variant": s["variant"], "Passed": s["passed"],
+                       "Score": s.get("avg_score", ""), "Inspector retries": s.get("retries", 0),
                        "Avg time (s)": s["avg_seconds"], "Avg model time (s)": s["avg_model_s"],
                        "Avg calls": s["avg_calls"], "Avg tokens in": s["avg_tokens_in"],
                        "Avg tokens out": s["avg_tokens_out"], "Saved by Telegram": f"{s['avg_saved_pct']:.0f}%"}
@@ -63,6 +64,8 @@ def show(results, live=False):
     st.subheader("Every test")
     st.dataframe([{"Agent": r["agent"], "Model": r["model"], "Variant": r["variant"],
                    "Result": "⏭ skipped" if r.get("passed") is None else ("✅ pass" if r["passed"] else "❌ fail"),
+                   "Score": r.get("score", ""),
+                   "Retries": r.get("retries", "") if r.get("inspector") else "–",
                    "Time (s)": r.get("seconds", ""), "Calls": r.get("calls", ""),
                    "Failed checks": "; ".join(c["check"] + (f" ({c['detail']})" if c["detail"] else "")
                                               for c in r.get("checks", []) if not c["ok"]) or r.get("why", ""),

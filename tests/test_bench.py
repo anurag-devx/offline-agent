@@ -62,3 +62,32 @@ def test_every_template_has_a_case():
     templates = {n for n in bench.available_agents() if "(yours)" not in n}
     assert templates <= names | {n for n in templates if bench.case_for(n, bench.available_agents()[n]).get("smoke")}
     assert {"Math Helper", "File Sorter", "Website Builder", "Gmail Sorter"} <= names
+
+
+class _Run:
+    answer, events, attempts = "", [], 1
+
+
+def test_text_checks_name_what_is_missing(tmp_path):
+    (tmp_path / "site").mkdir()
+    (tmp_path / "site" / "index.html").write_text('<h1>Crumbs</h1> ₹120 ₹90 TODO', encoding="utf-8")
+    out = bench.run_checks([
+        {"file_contains": {"path": "site/index.html", "text": ["Crumbs", "mailto:"]}},
+        {"file_not_contains": {"path": "site/index.html", "text": ["lorem ipsum", "TODO"]}},
+        {"count_text": {"path": "site/index.html", "text": "₹", "at_least": 2}},
+    ], _Run(), tmp_path)
+    assert [ok for _, ok, _ in out] == [False, False, True]
+    assert "mailto:" in out[0][2] and "TODO" in out[1][2]
+
+
+def test_score_penalizes_inspector_send_backs():
+    checks = [("a", True, ""), ("b", True, ""), ("c", False, ""), ("d", True, "")]
+    assert bench.score(checks, attempts=1) == 75
+    assert bench.score(checks, attempts=3) == 55
+    assert bench.score([], attempts=1) == 0
+
+
+def test_case_can_switch_the_inspector_on(tmp_path):
+    cfg = load_agent(bench.available_agents()["Math Helper"])
+    out = bench.prepare(cfg, {"verify": {"enabled": True, "criteria": "x", "max_attempts": 2}}, tmp_path / "s")
+    assert out.verify.enabled and out.verify.max_attempts == 2
