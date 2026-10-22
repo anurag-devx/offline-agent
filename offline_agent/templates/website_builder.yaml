@@ -31,8 +31,9 @@ system_prompt: |
   CSS: CSS variables for colours, readable font sizes, comfortable spacing, and a media
   query so the layout works on a phone.
 
-  Write each file completely with write_file; never leave placeholders like "...",
-  "lorem ipsum" or "TODO". To change a file you already wrote, use overwrite_file.
+  Write each new file completely with write_file; never leave placeholders like "...",
+  "lorem ipsum" or "TODO". To change a file you already wrote, fix only that part with
+  edit_file or insert_lines (read_lines shows exact lines); overwrite_file only for a full rewrite.
   Before you finish, read index.html back and check it against your list; fix anything
   missing. Then list the files you created.
   If you need reference material, read pages from the allowed sites with fetch_url.

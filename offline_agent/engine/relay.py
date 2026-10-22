@@ -22,6 +22,7 @@ from pathlib import Path
 
 from . import llm
 from .config import VerifyConfig
+from .findings import PATCH_RULE, as_text
 from .speed import timing
 
 MAX_CHUNKS = 12
@@ -83,8 +84,9 @@ the worker must change or add. Only chunks that need changes. Chunks:
 WORKER_NOTE = """
 
 You are one worker in a team. A PM split a bigger job into chunks; you do ONLY your chunk.
-Follow the CONTRACT exactly so your piece fits the others. Write your output completely with
-write_file (if the file already exists, read it and use overwrite_file). No placeholders.
+Follow the CONTRACT exactly so your piece fits the others. Write a NEW output completely with
+write_file. If it already exists, change only what's needed with edit_file / insert_lines
+(read_lines shows the exact text); overwrite_file only if the file is mostly wrong. No placeholders.
 When your chunk is done, reply with one short line saying what you made."""
 
 
@@ -314,10 +316,12 @@ class Relay:
             lines.append("Read first (you depend on them): " + ", ".join(
                 (d["path"] or d["output"]) if d["output"] else f"{d['id']} result: {d['note'][:200]}" for d in deps))
         if chunk.get("fix"):
-            lines.append(f"THE PM ASKS YOU TO FIX: {chunk['fix']}")
+            lines.append(f"THE REVIEW FOUND THESE PROBLEMS IN YOUR CHUNK. FIX THEM:\n{chunk['fix']}\n\n{PATCH_RULE}")
         if chunk["problems"] and chunk["tries"] > 1:
-            lines.append("YOUR LAST TRY FAILED THE CHECK: " + "; ".join(chunk["problems"])
-                         + ". Read the file and fix it with overwrite_file.")
+            missing_file = any("was not created" in x for x in chunk["problems"])
+            lines.append("YOUR LAST TRY FAILED THE CHECK: " + "; ".join(chunk["problems"]) + ". "
+                         + ("Create the file with write_file." if missing_file else
+                            "The file exists: fix it in place with edit_file / insert_lines (read_lines first)."))
         return "\n\n".join(lines)
 
     def integrate(self):
@@ -357,8 +361,27 @@ class Relay:
         self._save()
 
     def send_back(self, verdict):
-        """The PM maps the review's findings to chunks to redo."""
+        """Findings that name a chunk's file go straight back to that chunk (code, no model call).
+        The PM maps whatever is left to chunks to redo."""
         st = self.state
+        direct, rest = {}, []
+        for f in verdict.get("findings") or []:
+            owner = next((c for c in st["chunks"] if c["output"] and f.get("path")
+                          and Path(f["path"]).name == Path(c["path"] or c["output"]).name), None)
+            if owner:
+                direct.setdefault(owner["id"], []).append(f)
+            else:
+                rest.append(f)
+        for cid, items in direct.items():
+            c = next(c for c in st["chunks"] if c["id"] == cid)
+            c.update(status="todo", tries=0, fix=as_text(items)[:3000], problems=[])
+        if direct and not rest:
+            self._event(phase="review", content="Review pointed at: " + ", ".join(
+                f"{cid} ({len(v)} fix{'es' if len(v) > 1 else ''})" for cid, v in direct.items()))
+            st["phase"] = "build"
+            return
+        if rest:
+            verdict = {**verdict, "missing": f"{verdict.get('missing', '')}\n{as_text(rest)}".strip()}
         listing = "\n".join(f"- {c['id']} {c['title']}" + (f" ({c['output']})" if c["output"] else "")
                             for c in st["chunks"])
         user = f"TASK:\n{st['task'][:3000]}\n\nREVIEW: {verdict['reason']}\nMISSING: {verdict.get('missing', '')}"
@@ -375,7 +398,8 @@ class Relay:
                                  "goal": f"{verdict['reason']}\nMissing: {verdict.get('missing', '')}"})
         for r in redo:
             c = next(c for c in st["chunks"] if c["id"] == r["id"])
-            c.update(status="todo", tries=0, fix=str(r.get("fix", ""))[:500], problems=[])
+            earlier = c["fix"] if c["id"] in direct else ""
+            c.update(status="todo", tries=0, fix=(earlier + "\n" + str(r.get("fix", ""))[:500]).strip(), problems=[])
         self._event(phase="review", content="PM sent back: " + (", ".join(r["id"] for r in redo) or "a fix chunk"))
         st["phase"] = "build"
 

@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+- **Pinpoint + Patch**: the Inspector returns findings (file, line, problem, fix); code checks them and
+  attaches the real lines; agents fix just that spot with new tools `read_lines` (line numbers by code),
+  `edit_file` (exact replace, refused unless the text appears once; tolerant of indentation and pasted
+  line numbers) and `insert_lines`. Relay sends findings straight to the chunk that owns the file
+- **Warm Start**: every model call keeps the model loaded (`keep_alive` 30 min,
+  `OFFLINE_AGENT_KEEP_ALIVE` to change) and uses one context size, so Ollama doesn't reload;
+  the Speed panel estimates how much of each prompt Ollama reused
+- **Web Cache**: the same address twice in one job is downloaded once
+
 ## v0.3.1 (2026-10-23)
 
 - Fix (Windows): the Test Bench, Relay checks, Workspace preview and scheduler now read and write

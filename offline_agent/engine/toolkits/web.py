@@ -6,6 +6,8 @@ Internet tools, locked to the agent's allowed domains.
 - Redirects to a site that isn't allowed are blocked before they happen.
 """
 import ssl
+import threading
+import time
 import urllib.parse
 import urllib.request
 from html.parser import HTMLParser
@@ -17,6 +19,25 @@ from ..tools import tool
 MAX_BYTES = 2_000_000
 MAX_TEXT = 12000
 SEARCH_HOST = "html.duckduckgo.com"
+CACHE_S = 30 * 60   # Web cache: the same address again in the same job is served from memory
+_cache, _cache_lock = {}, threading.Lock()
+
+
+def _cached(url):
+    with _cache_lock:
+        hit = _cache.get(url)
+        if hit and time.time() - hit[0] < CACHE_S:
+            return hit[1]
+        _cache.pop(url, None)
+    return None
+
+
+def _remember(url, value):
+    with _cache_lock:
+        if len(_cache) > 200:  # keep it small: drop the oldest
+            for k, _ in sorted(_cache.items(), key=lambda kv: kv[1][0])[:50]:
+                _cache.pop(k, None)
+        _cache[url] = (time.time(), value)
 
 
 def domain_allowed(host, allowed):
@@ -65,17 +86,25 @@ def http_get(url, extra_allowed=()):
         ok = ctx.approve("open_website", {"site": host, "url": url})
         if ok:
             ctx.state["granted_domains"].append(host)
-    ctx.record("network", url=url, host=host, allowed=ok)
     if not ok:
+        ctx.record("network", url=url, host=host, allowed=ok)
         raise PermissionError(
             f"{host} is not an allowed site. Allowed: {', '.join(allowed) or 'none'}.")
+    key = (getattr(ctx, "job", ""), url)  # per job, so a scheduled news run always gets fresh pages
+    hit = _cached(key)
+    if hit:  # e.g. the next page of a long article: no second download
+        ctx.record("web_cache", url=url, host=host)
+        return hit
+    ctx.record("network", url=url, host=host, allowed=ok)
     opener = urllib.request.build_opener(_RedirectGuard(allowed),
                                          urllib.request.HTTPSHandler(context=_ssl_context()))
     req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (offline-agent)"})
     with opener.open(req, timeout=20) as resp:
         data = resp.read(MAX_BYTES)
         charset = resp.headers.get_content_charset() or "utf-8"
-        return data.decode(charset, errors="replace"), resp.headers.get_content_type()
+        result = data.decode(charset, errors="replace"), resp.headers.get_content_type()
+    _remember(key, result)
+    return result
 
 
 class _TextExtractor(HTMLParser):

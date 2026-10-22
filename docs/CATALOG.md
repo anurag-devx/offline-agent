@@ -42,7 +42,7 @@ Reads and summarizes files in the workspace; asks before creating files.
 **Needs:** Files: read, create in the workspace. Asks before: create. No internet. Can ask you questions during a run.
 **How it works:** Agent: the model works step by step with tools
 **Features:** Job notes · Telegram style · Full Voice
-**Tools:** `calculator`, `current_datetime`, `list_folder`, `read_file`, `create_folder`, `write_file`, `ask_user`
+**Tools:** `calculator`, `current_datetime`, `list_folder`, `read_file`, `read_lines`, `create_folder`, `write_file`, `ask_user`
 
 **Try:**
 - Summarize notes.txt in three bullet points.
@@ -57,7 +57,7 @@ Organizes files in a folder the way you ask. Rule mode - the model writes a rule
 **Needs:** Files: read, create, move / rename, delete in a folder you choose. Asks before: move / rename, delete. No internet. Can ask you questions during a run.
 **How it works:** Clerk: the model writes one rule, you approve it, code does the work and checks it
 **Features:** Telegram style · Full Voice
-**Tools:** `calculator`, `current_datetime`, `list_folder`, `read_file`, `create_folder`, `write_file`, `move_file`, `move_files`, `delete_file`, `ask_user`
+**Tools:** `calculator`, `current_datetime`, `list_folder`, `read_file`, `read_lines`, `create_folder`, `write_file`, `move_file`, `move_files`, `delete_file`, `ask_user`
 
 **Try:**
 - Move all pdf files in ~/Downloads to a new folder all_pdf.
@@ -102,7 +102,7 @@ Collects today's stock-market headlines from approved news feeds into a text fil
 **Needs:** Files: create, modify in the workspace. Asks before: modify. Internet: reads pages on economictimes.indiatimes.com, livemint.com, moneycontrol.com.
 **How it works:** Agent: the model works step by step with tools
 **Features:** Job notes · Inspector (verifier) · Telegram style · Full Voice
-**Tools:** `calculator`, `current_datetime`, `fetch_url`, `read_feed`, `create_folder`, `write_file`, `overwrite_file`, `append_note`
+**Tools:** `calculator`, `current_datetime`, `fetch_url`, `read_feed`, `edit_file`, `insert_lines`, `create_folder`, `write_file`, `overwrite_file`, `append_note`
 
 **Try:**
 - Collect today's stock market headlines and save them to a text file.
@@ -117,7 +117,7 @@ Saves timestamped notes in workspace/notes.md and reads them back.
 **Needs:** Files: read, modify in the workspace. No internet.
 **How it works:** Agent: the model works step by step with tools
 **Features:** Telegram style · Full Voice
-**Tools:** `calculator`, `current_datetime`, `list_folder`, `read_file`, `overwrite_file`, `append_note`
+**Tools:** `calculator`, `current_datetime`, `list_folder`, `read_file`, `read_lines`, `edit_file`, `insert_lines`, `overwrite_file`, `append_note`
 
 **Try:**
 - Note that the dentist appointment is on Friday at 4pm.
@@ -147,7 +147,7 @@ Builds a small static website (HTML/CSS/JS) in a workspace folder.
 **Needs:** Files: read, create, modify in the workspace. Asks before: modify. Internet: reads pages on developer.mozilla.org. Can ask you questions during a run.
 **How it works:** Agent: the model works step by step with tools
 **Features:** Job notes · Inspector (verifier) · Telegram style · Full Voice
-**Tools:** `calculator`, `current_datetime`, `fetch_url`, `read_feed`, `list_folder`, `read_file`, `create_folder`, `write_file`, `overwrite_file`, `append_note`, `ask_user`
+**Tools:** `calculator`, `current_datetime`, `fetch_url`, `read_feed`, `list_folder`, `read_file`, `read_lines`, `edit_file`, `insert_lines`, `create_folder`, `write_file`, `overwrite_file`, `append_note`, `ask_user`
 
 **Try:**
 - Build a one-page website for a bakery called Crumbs in my-site/.
@@ -296,6 +296,66 @@ Read a text file, one page at a time.
 +3000 more chars. Next page: offset=6000
 ```
 
+#### `read_lines`
+
+Read part of a text file WITH line numbers, to find the exact place to look at or change.
+
+**Unlocked by:** Files & folders: Read
+
+| Input | Type | Required | About |
+|---|---|---|---|
+| `path` | string | yes | Full path, e.g. "~/site/script.js" |
+| `start` | integer | no (default `1`) | First line number to show (1 = top of the file) |
+| `count` | integer | no (default `80`) | How many lines (default 80, max 300) |
+
+**Safety:** Only the agent's folders and allowed file types. Line numbers are added by code.
+
+**Example output:**
+```
+OK ~/site/script.js lines 40-42 of 210
+40 | function addToCart(id) {
+41 |   cart.push(id);
+42 | }
+```
+
+#### `edit_file`
+
+Change part of an EXISTING file: replace old_text with new_text. Much cheaper than rewriting the whole file. old_text must be copied exactly from the file (use read_lines first, without the line numbers) and must appear only once; include a few lines around it if needed.
+
+**Unlocked by:** Files & folders: Modify
+
+| Input | Type | Required | About |
+|---|---|---|---|
+| `path` | string | yes | Full path of the file |
+| `old_text` | string | yes | The exact text to replace (one or a few lines) |
+| `new_text` | string | yes | The text to put there instead ("" deletes old_text) |
+
+**Safety:** Changes only the exact text you quote, which must appear exactly once. Recorded in the file log.
+
+**Example output:**
+```
+OK edited ~/site/script.js at line 42 (1 → 2 lines)
+```
+
+#### `insert_lines`
+
+Insert new lines into an EXISTING file after a line number (0 = at the very top). Use read_lines to find the right number. Nothing else in the file changes.
+
+**Unlocked by:** Files & folders: Modify
+
+| Input | Type | Required | About |
+|---|---|---|---|
+| `path` | string | yes | Full path of the file |
+| `after_line` | integer | yes | Insert after this line number (0 = top; a number past the end = at the end) |
+| `text` | string | yes | The lines to insert |
+
+**Safety:** Adds lines to an existing file; nothing else changes. Recorded in the file log.
+
+**Example output:**
+```
+OK inserted 5 lines after line 120 in ~/site/index.html
+```
+
 #### `create_folder`
 
 Create a folder (and any missing parent folders). Does nothing if it already exists.
@@ -333,7 +393,7 @@ OK created ~/site/index.html (2140 chars)
 
 #### `overwrite_file`
 
-Replace the content of an EXISTING text file.
+Replace ALL of an EXISTING text file. To change only part of it, use edit_file or insert_lines instead: much less to write.
 
 **Unlocked by:** Files & folders: Modify
 

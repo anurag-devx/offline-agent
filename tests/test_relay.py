@@ -120,3 +120,24 @@ def test_stopped_relay_job_resumes_where_it_was(fake, tmp_path, monkeypatch):
     wait(again)
     assert again.status == "completed", again.answer
     assert [c["tries"] for c in again.relay["chunks"]] == [1, 1]
+
+
+def test_review_findings_go_straight_to_the_chunk_that_owns_the_file(fake, tmp_path):
+    verdicts = iter([{"complete": False, "reason": "no footer", "missing": "footer",
+                      "findings": [{"file": "site/index.html", "line": 1, "problem": "no footer",
+                                    "fix": "add <footer>"}]},
+                     {"complete": True, "reason": "ok", "missing": "", "findings": []}])
+    plan = {**PLAN, "chunks": PLAN["chunks"][:1]}
+    fake.format_replies = {"chunks": plan, "complete": lambda: next(verdicts)}  # no "redo": the PM isn't asked
+    fake.script = [
+        [("write_file", {"path": "site/index.html", "content": "<h1>Crumbs</h1><link href='style.css'>"})], "made",
+        "done",
+        [("insert_lines", {"path": "site/index.html", "after_line": 1, "text": "<footer>x</footer>"})], "fixed"]
+    mgr = RunManager()
+    run = mgr.start(site_cfg(tmp_path, route="relay"), "build the page")
+    wait(run)
+    assert run.status == "completed", run.answer
+    assert [c["id"] for c in run.relay["chunks"]] == ["c1"]  # no extra fix chunk
+    brief = [e["content"] for e in run.events if e.get("worker")][-1]
+    assert "site/index.html line 1: no footer" in brief and "1 | <h1>Crumbs</h1>" in brief and "insert_lines" in brief
+    assert "<footer>" in (tmp_path / "site" / "index.html").read_text(encoding="utf-8")

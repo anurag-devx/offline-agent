@@ -143,7 +143,8 @@ def plan_task(cfg, task):
         "If a step needs a tool you are not allowed to use, still name it.")
     response = llm.chat(cfg.model, [{"role": "system", "content": prompt},
                                     {"role": "user", "content": task}],
-                        temperature=0, think=False, format=PLAN_SCHEMA, num_predict=500)  # Word Limit
+                        temperature=0, think=False, format=PLAN_SCHEMA, num_ctx=cfg.context_length,
+                        num_predict=500)  # Word Limit; same num_ctx as the agent, so no reload
     plan = json.loads(response.message.content)
     for s in plan.get("steps", []):
         tool = (s.get("tool") or "none").strip()

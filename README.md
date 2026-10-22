@@ -99,6 +99,16 @@ These features keep that small. All are measured in each run's **⚡ Speed** pan
 | **Stopwatch** | Per call: load / read / write time, tokens and tokens per second |
 | **Token Meter** | What each call sent (instructions, tools, history, notes) and what was saved |
 | **Full Voice** | Compact while working, complete final answers; a cut-off answer is continued automatically |
+| **Pinpoint** | The Inspector points at file + line; code attaches the real lines; the agent fixes just that spot |
+| **Patch** | `read_lines` (numbered by code), `edit_file` (replace exact text, refused unless it appears once), `insert_lines`: a one-line fix costs a few tokens, not a whole-file rewrite |
+| **Warm Start** | The model stays loaded between calls (`keep_alive`, 30 min) and every call uses the same context size, so Ollama never reloads and can reuse the prompt it already read (♻️ reuse in the Speed panel) |
+| **Web Cache** | The same address twice in one job (e.g. the next page of an article) is downloaded once |
+
+Writing is the slow part (every token reads the whole model from memory), so the biggest wins are
+writing less: code does the work (Clerk), short working replies, and patches instead of rewrites.
+
+For more speed on Apple Silicon, start Ollama with flash attention and a smaller KV cache:
+`launchctl setenv OLLAMA_FLASH_ATTENTION 1` and `launchctl setenv OLLAMA_KV_CACHE_TYPE q8_0`, then restart Ollama.
 
 Telegram style is for the machine side (what the model reads); **Full Voice** keeps the human side
 (final answers, summaries, analysis) as detailed as needed. Both are toggles in

@@ -4,9 +4,16 @@ engine/llm.py: the only file that talks to Ollama.
 Everything else (agent loop, validation, UI) calls these functions.
 To support another backend later (LM Studio, llama.cpp), you change this file only.
 """
+import os
 from functools import lru_cache
 
 import ollama
+
+# Keep the model loaded between calls (Ollama's default unloads it after 5 idle minutes, and
+# loading again costs 5-20 s). Change with OFFLINE_AGENT_KEEP_ALIVE, e.g. "10m", "2h" or "-1".
+KEEP_ALIVE = os.environ.get("OFFLINE_AGENT_KEEP_ALIVE", "30m")
+# One context size for calls that don't give one. A different num_ctx makes Ollama reload the model.
+DEFAULT_CTX = 16384
 
 
 def is_running():
@@ -50,12 +57,10 @@ def context_limit(model):
 def _options(model, temperature, think, num_ctx=None, num_predict=None):
     # num_ctx = how many tokens the model can see at once. Ollama's default is small and it
     # silently drops the START of longer conversations (your instructions!), so set it explicitly.
-    opts = {"temperature": temperature}
-    if num_ctx:
-        opts["num_ctx"] = int(num_ctx)
+    opts = {"temperature": temperature, "num_ctx": int(num_ctx or DEFAULT_CTX)}
     if num_predict:
         opts["num_predict"] = int(num_predict)  # max tokens in the reply ("telegram" cap)
-    kwargs = {"options": opts}
+    kwargs = {"options": opts, "keep_alive": KEEP_ALIVE}
     # Only reasoning models accept the `think` switch; others error if we send it.
     if "thinking" in capabilities(model):
         kwargs["think"] = think

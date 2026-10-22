@@ -8,6 +8,8 @@ Rules enforced here, in code (the model can't talk its way around them):
   - Nothing is ever overwritten by create/move. Delete goes to the Trash.
   - Every change is recorded as a "file_op" event (shown in the run, undoable).
 """
+import difflib
+import re
 import shutil
 from datetime import datetime
 from pathlib import Path
@@ -205,6 +207,128 @@ def read_file(path: str, offset: int = 0, limit: int = 6000):
     return page(p.read_text(encoding="utf-8", errors="replace"), offset, min(int(limit), MAX_READ), short(p))
 
 
+@tool("files.read", safety="Only the agent's folders and allowed file types. Line numbers are added by code.",
+      example='OK ~/site/script.js lines 40-42 of 210\n40 | function addToCart(id) {\n41 |   cart.push(id);\n42 | }')
+def read_lines(path: str, start: int = 1, count: int = 80):
+    """Read part of a text file WITH line numbers, to find the exact place to look at or change.
+
+    Args:
+        path: Full path, e.g. "~/site/script.js"
+        start: First line number to show (1 = top of the file)
+        count: How many lines (default 80, max 300)
+    """
+    p = resolve(path, "read")
+    _check_type(p)
+    if not p.is_file():
+        return f"Error: {short(p)} does not exist. Use list_folder to see what is there."
+    lines = p.read_text(encoding="utf-8", errors="replace").splitlines()
+    return numbered(lines, int(start), max(1, min(int(count), 300)), short(p))
+
+
+def numbered(lines, start, count, name):
+    total = len(lines)
+    start = max(1, min(start, total or 1))
+    end = min(total, start + count - 1)
+    width = len(str(end or 1))
+    body = "\n".join(f"{i:>{width}} | {lines[i - 1]}" for i in range(start, end + 1))
+    more = f"\n+{total - end} more lines. Next: start={end + 1}" if end < total else ""
+    return f"OK {name} lines {start}-{end} of {total}\n{body}{more}"
+
+
+_NUM = re.compile(r"^\s*\d+ \| ?")
+
+
+def _unnumber(text):
+    """Models sometimes paste read_lines output with its numbers: strip them."""
+    lines = text.splitlines()
+    if lines and all(_NUM.match(x) for x in lines if x.strip()):
+        return "\n".join(_NUM.sub("", x, count=1) for x in lines)
+    return text
+
+
+def _loose_find(lines, old_lines):
+    """Positions where old_lines match ignoring spaces at the start/end of each line."""
+    want = [x.strip() for x in old_lines]
+    k = len(want)
+    return [i for i in range(len(lines) - k + 1) if [x.strip() for x in lines[i:i + k]] == want]
+
+
+def _closest(lines, old):
+    first = next((x.strip() for x in old.splitlines() if x.strip()), "")
+    stripped = [x.strip() for x in lines]
+    near = difflib.get_close_matches(first, stripped, n=3, cutoff=0.5)
+    hits = [i for i, x in enumerate(stripped) if x in near][:3]
+    return "\n".join(f"{i + 1} | {lines[i]}" for i in hits) or "(nothing similar)"
+
+
+@tool("files.modify", safety="Changes only the exact text you quote, which must appear exactly once. Recorded in the file log.",
+      example='OK edited ~/site/script.js at line 42 (1 → 2 lines)')
+def edit_file(path: str, old_text: str, new_text: str):
+    """Change part of an EXISTING file: replace old_text with new_text. Much cheaper than rewriting
+    the whole file. old_text must be copied exactly from the file (use read_lines first, without the
+    line numbers) and must appear only once; include a few lines around it if needed.
+
+    Args:
+        path: Full path of the file
+        old_text: The exact text to replace (one or a few lines)
+        new_text: The text to put there instead ("" deletes old_text)
+    """
+    ctx = get_context()
+    p = resolve(path, "modify")
+    _check_type(p)
+    if not p.is_file():
+        return f"Error: {short(p)} does not exist. Use write_file to create it."
+    text = p.read_text(encoding="utf-8", errors="replace")
+    old, new = _unnumber(str(old_text)), _unnumber(str(new_text))
+    if not old.strip():
+        return "Error: old_text is empty. Use insert_lines to add new lines."
+    n = text.count(old)
+    if n > 1:
+        return f"Error: old_text appears {n} times in {short(p)}. Include more lines around it so it is unique."
+    if n == 1:
+        at = text[:text.index(old)].count("\n") + 1
+        updated = text.replace(old, new, 1)
+    else:  # tolerate different indentation / trailing spaces, line by line
+        lines, olds = text.splitlines(keepends=True), old.splitlines()
+        hits = _loose_find([x.rstrip("\r\n") for x in lines], olds)
+        if len(hits) != 1:
+            why = "appears more than once" if hits else "was not found"
+            return (f"Error: old_text {why} in {short(p)}. Closest lines:\n{_closest(text.splitlines(), old)}\n"
+                    "Copy the exact text with read_lines and try again.")
+        i, at = hits[0], hits[0] + 1
+        tail = "\n" if lines[i + len(olds) - 1].endswith("\n") and new and not new.endswith("\n") else ""
+        updated = "".join(lines[:i]) + new + tail + "".join(lines[i + len(olds):])
+    _count_change(ctx, "modify", dst=str(p))
+    p.write_text(updated, encoding="utf-8")
+    return f"OK edited {short(p)} at line {at} ({len(old.splitlines())} → {len(new.splitlines())} lines)"
+
+
+@tool("files.modify", safety="Adds lines to an existing file; nothing else changes. Recorded in the file log.",
+      example='OK inserted 5 lines after line 120 in ~/site/index.html')
+def insert_lines(path: str, after_line: int, text: str):
+    """Insert new lines into an EXISTING file after a line number (0 = at the very top).
+    Use read_lines to find the right number. Nothing else in the file changes.
+
+    Args:
+        path: Full path of the file
+        after_line: Insert after this line number (0 = top; a number past the end = at the end)
+        text: The lines to insert
+    """
+    ctx = get_context()
+    p = resolve(path, "modify")
+    _check_type(p)
+    if not p.is_file():
+        return f"Error: {short(p)} does not exist. Use write_file to create it."
+    lines = p.read_text(encoding="utf-8", errors="replace").splitlines(keepends=True)
+    n = max(0, min(int(after_line), len(lines)))
+    if n and not lines[n - 1].endswith("\n"):
+        lines[n - 1] += "\n"
+    add = str(text) if str(text).endswith("\n") or n == len(lines) else str(text) + "\n"
+    _count_change(ctx, "modify", dst=str(p))
+    p.write_text("".join(lines[:n]) + add + "".join(lines[n:]), encoding="utf-8")
+    return f"OK inserted {len(str(text).splitlines())} lines after line {n} in {short(p)}"
+
+
 @tool("files.create", safety="Only inside the agent's folders. Counts toward the change limit.", example='OK created ~/Downloads/all_pdf/')
 def create_folder(path: str):
     """Create a folder (and any missing parent folders). Does nothing if it already exists.
@@ -242,7 +366,8 @@ def write_file(path: str, content: str):
 
 @tool("files.modify", safety='Changes an existing file: use Ask first. Recorded in the file log.', example='OK replaced ~/site/style.css (980 chars)')
 def overwrite_file(path: str, content: str):
-    """Replace the content of an EXISTING text file.
+    """Replace ALL of an EXISTING text file. To change only part of it, use edit_file or
+    insert_lines instead: much less to write.
 
     Args:
         path: Full path of the file

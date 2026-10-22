@@ -33,6 +33,7 @@ from . import audit
 from .ledger import Ledger
 from .rules import make_agent
 from .config import ROOT, AgentConfig
+from .findings import PATCH_RULE, as_text, locate
 from .relay import Relay, markdown as relay_markdown
 from .triage import triage
 from .verifier import verify
@@ -316,6 +317,8 @@ class RunManager:
                 break
             message = ("A verifier checked the real state and the task is NOT complete yet.\n"
                        f"Reason: {verdict['reason']}\nStill missing: {verdict['missing']}\n"
+                       + (f"\nExact places to fix:\n{as_text(verdict['findings'])}\n\n{PATCH_RULE}\n"
+                          if verdict.get("findings") else "") +
                        "Continue now and finish the task with your tools. Do not just describe or summarize.")
             self._record(run, {"type": "user", "content": message, "auto": True})
             run.status = "running"
@@ -397,8 +400,11 @@ class RunManager:
                 self._record(run, {"type": "verify_step", "name": e["name"], "args": e["args"]})
             elif e["type"] == "verdict":
                 verdict = e
-        self._record(run, {"type": "verification", "attempt": run.attempts, **{k: verdict[k] for k in
-                                                                                ("complete", "reason", "missing")}})
+        known = [e.get("dst") for e in run.events if e["type"] == "file_op" and e.get("dst")]
+        verdict["findings"] = locate(verdict.get("findings"), self.worker_roots(run.id), known)
+        self._record(run, {"type": "verification", "attempt": run.attempts, **{k: verdict.get(k) for k in
+                                                                                ("complete", "reason", "missing",
+                                                                                 "findings")}})
         audit.log("verification", run=run.id, attempt=run.attempts, complete=verdict["complete"],
                   reason=verdict["reason"])
         return verdict

@@ -13,13 +13,14 @@ import json
 from . import llm
 from .agent import Agent
 from .config import AgentConfig
+from .findings import SCHEMA as FINDINGS_SCHEMA
 from .permissions import ALLOW, OFF, Policy
 
 VERDICT_SCHEMA = {
     "type": "object",
     "properties": {"complete": {"type": "boolean"}, "reason": {"type": "string"},
-                   "missing": {"type": "string"}},
-    "required": ["complete", "reason", "missing"],
+                   "missing": {"type": "string"}, "findings": FINDINGS_SCHEMA},
+    "required": ["complete", "reason", "missing", "findings"],
 }
 
 PROMPT = """You are a strict verifier. You check whether another agent really completed a task.
@@ -28,6 +29,8 @@ Rules:
 - Check the real current state (e.g. list the folders involved, using filters like extensions=".pdf").
 - A task is complete only if every part of it is done. Summaries or plans are not completion.
 - Be concrete: name what is missing (e.g. "23 .pdf files are still in ~/Downloads").
+- Look at files with read_lines (it shows line numbers), so you can point at the exact line of
+  each problem. Something missing entirely: give the line it should go after.
 You cannot change anything; you can only look."""
 
 
@@ -83,11 +86,15 @@ def verify(cfg, task, events, granted_folders=(), should_stop=None, notes=""):
         yield e
     try:
         resp = llm.chat(vcfg.model, checker.messages + [{"role": "user", "content":
-                        "Now give your verdict as JSON: complete (true/false), reason, missing."}],
+                        "Now give your verdict as JSON: complete (true/false), reason, missing, and "
+                        "findings: one per problem with file, line (from read_lines; 0 if unknown), "
+                        "problem and fix. Empty findings if complete."}],
                         temperature=0, think=False, format=VERDICT_SCHEMA, num_ctx=cfg.context_length,
-                        num_predict=250)  # Word Limit: a verdict is short
+                        num_predict=900)  # Word Limit: a verdict with findings is still short
         verdict = json.loads(resp.message.content)
     except Exception as ex:
         verdict = {"complete": False, "reason": f"Verifier failed: {ex}", "missing": "unknown"}
+    found = verdict.get("findings") if isinstance(verdict.get("findings"), list) else []
     yield {"type": "verdict", "complete": bool(verdict.get("complete")),
-           "reason": str(verdict.get("reason", "")), "missing": str(verdict.get("missing", ""))}
+           "reason": str(verdict.get("reason", "")), "missing": str(verdict.get("missing", "")),
+           "findings": [] if verdict.get("complete") else found}

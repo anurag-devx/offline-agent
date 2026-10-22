@@ -62,6 +62,15 @@ def summarize(run):
         for k, v in (e.get("saved") or {}).items():
             saved[k] = saved.get(k, 0) + v
     sent_total, saved_total = sum(sent.values()), sum(saved.values())
+    # Prompt reuse: Ollama skips re-reading the start of a prompt it read in the call before, and
+    # then reports fewer prompt tokens than we sent. Rough (our token counts are estimates).
+    measured = [e for e in calls if e.get("sent")]
+    est = sum(sum(e["sent"].values()) for e in measured)
+    real = sum(e.get("prompt_tokens", 0) for e in measured)
+    reuse_pct = max(0, min(99, round((1 - real / est) * 100))) if est and len(measured) > 1 else 0
+    if len(measured) >= 4 and reuse_pct < 20:
+        tips.append(f"Ollama reused little of earlier prompts (~{reuse_pct}%). Keep the model loaded and the "
+                    "same context size for every call, so it can skip re-reading the same start.")
     if sent_total and sent.get("tools", 0) > 0.4 * sent_total:
         tips.append(f"Tool descriptions are {sent['tools'] / sent_total:.0%} of what each call sends. "
                     "Turn off permissions this agent doesn't need: fewer tools, less to read.")
@@ -79,7 +88,7 @@ def summarize(run):
             "read_tps": round(prompt_tokens / read, 1) if read else 0.0,
             "write_tps": round(output_tokens / write, 1) if write else 0.0,
             "parts": {k: round(v, 1) for k, v in parts.items()}, "tips": tips,
-            "sent": sent, "saved": saved,
+            "sent": sent, "saved": saved, "reuse_pct": reuse_pct,
             "saved_pct": round(saved_total / (sent_total + saved_total) * 100) if sent_total + saved_total else 0,
             "per_call": [{"#": i, "what": e.get("purpose") or f"step {e.get('step')}",
                           "load s": e.get("load_s", 0), "read s": e.get("read_s", 0),

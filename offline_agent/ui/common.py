@@ -73,6 +73,11 @@ def render_event(e):
             st.success(f"🔍 Verified complete: {e['reason']}")
         else:
             st.error(f"🔍 Not complete: {e['reason']}  \nMissing: {e['missing']}")
+            for f in e.get("findings") or []:
+                st.markdown(f"📍 `{f['file']}`" + (f" line {f['line']}" if f.get("line") else "")
+                            + f": {f['problem']}" + (f"  \n   Fix: {f['fix']}" if f.get("fix") else ""))
+                if f.get("snippet"):
+                    st.code(f["snippet"], language=None)
     elif t == "model_call":
         what = {"plan": "planned the job", "rule": "wrote the rule",
                 "continue": "continued the answer"}.get(e.get("purpose"), f"step {e['step']}")
@@ -198,6 +203,9 @@ def _speed(run, key):
             saved = " · ".join(f"{feats.get(k, k)} {v:,}" for k, v in sp["saved"].items() if v)
             if saved:
                 st.caption(f"✂️ Saved by Telegram style: about {sp['saved_pct']}% · {saved} tokens")
+            if sp.get("reuse_pct"):
+                st.caption(f"♻️ Prompt reuse: Ollama skipped re-reading about {sp['reuse_pct']}% of what was sent "
+                           "(the same start as the call before)")
         for tip in sp["tips"]:
             st.markdown(f"- 💡 {tip}")
         st.dataframe(sp["per_call"], hide_index=True)
