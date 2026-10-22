@@ -26,6 +26,9 @@ class FakeModel:
 
     def __init__(self):
         self.script, self.format_replies, self.calls = [], {}, []
+        # nanoseconds, like Ollama: load 0.5s, read 10 tokens in 1s, write 5 tokens in 0.5s
+        self.durations = {"load_duration": 500_000_000, "prompt_eval_duration": 1_000_000_000,
+                          "eval_duration": 500_000_000}
 
     def chat(self, model, messages, tools=None, stream=False, format=None, **kw):
         self.calls.append({"messages": list(messages), "format": format, "options": kw.get("options")})
@@ -33,7 +36,7 @@ class FakeModel:
             for key, reply in self.format_replies.items():
                 if key in format.get("properties", {}):
                     value = reply() if callable(reply) else reply
-                    return ChatResponse(model=model, prompt_eval_count=10, eval_count=5,
+                    return ChatResponse(model=model, prompt_eval_count=10, eval_count=5, **self.durations,
                                         message=Message(role="assistant", content=json.dumps(value)))
             raise AssertionError(f"no fake reply for schema {list(format.get('properties', {}))}")
         reply = self.script.pop(0) if self.script else "done"
@@ -42,7 +45,7 @@ class FakeModel:
         else:
             msg = Message(role="assistant", content="", tool_calls=[
                 Message.ToolCall(function=Message.ToolCall.Function(name=n, arguments=a)) for n, a in reply])
-        return ChatResponse(model=model, prompt_eval_count=10, eval_count=5, message=msg)
+        return ChatResponse(model=model, prompt_eval_count=10, eval_count=5, **self.durations, message=msg)
 
 
 @pytest.fixture

@@ -17,6 +17,7 @@ from . import llm
 from .context import ToolContext, set_context
 from .ledger import Ledger
 from .memory import recall_block
+from .speed import timing
 from .permissions import ASK, OFF
 from .toolkits import files
 
@@ -95,8 +96,7 @@ class RuleAgent:
         resp = llm.chat(cfg.model, messages, temperature=0, think=False, format=RULE_SCHEMA,
                         num_ctx=cfg.context_length, num_predict=600)
         event = {"type": "model_call", "purpose": "rule", "step": 1, "seconds": round(time.time() - started, 1),
-                 "prompt_tokens": resp.prompt_eval_count or 0, "output_tokens": resp.eval_count or 0,
-                 "thinking": "", "content": resp.message.content or ""}
+                 **timing(resp), "thinking": "", "content": resp.message.content or ""}
         return json.loads(resp.message.content), event
 
     def _drain(self, ctx):
@@ -206,15 +206,17 @@ class RuleAgent:
             call = {"folder": source, "destination_folder": r["destination"], "extensions": ",".join(r["extensions"]),
                     "kinds": ",".join(r["kinds"]), "name_contains": r["name_contains"]}
             yield {"type": "tool_call", "name": "move_files", "args": call, "step": 3}
+            t_tool = time.time()
             try:
                 result = files.move_files(**call)
             except Exception as e:
                 result = f"Error: {e}"
+            tool_s = round(time.time() - t_tool, 2)
             yield from ({**ev, "step": 3} for ev in self._drain(ctx))
             if "NOT MOVED" in result or result.startswith("Error"):
                 problems.append(result)
             led.attach("move_files", result)
-            yield {"type": "tool_result", "name": "move_files", "result": result, "step": 3}
+            yield {"type": "tool_result", "name": "move_files", "result": result, "step": 3, "seconds": tool_s}
         led.update(3, "done", "code ran the rule")
         yield {"type": "ledger", "ledger": led.to_dict(), "step": 3}
 
@@ -286,8 +288,7 @@ class EmailRuleAgent(RuleAgent):
         resp = llm.chat(cfg.model, messages, temperature=0, think=False, format=EMAIL_RULE_SCHEMA,
                         num_ctx=cfg.context_length, num_predict=600)
         event = {"type": "model_call", "purpose": "rule", "step": 1, "seconds": round(time.time() - started, 1),
-                 "prompt_tokens": resp.prompt_eval_count or 0, "output_tokens": resp.eval_count or 0,
-                 "thinking": "", "content": resp.message.content or ""}
+                 **timing(resp), "thinking": "", "content": resp.message.content or ""}
         return json.loads(resp.message.content), event
 
     def run(self, user_input):

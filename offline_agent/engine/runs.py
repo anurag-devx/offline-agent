@@ -18,6 +18,7 @@ out of attempts, or you press Stop.
 import json
 import shutil
 import threading
+import time
 import uuid
 from collections import Counter
 from dataclasses import asdict, dataclass, field
@@ -59,6 +60,8 @@ class Run:
     answer: str = ""
     pending: dict = None          # {"kind": "approval", name, args} or {"kind": "question", question}
     undone: bool = False
+    wait_s: float = 0.0           # time spent waiting for your approvals / answers
+    verify_s: float = 0.0         # model time spent by the verifier
     ledger: dict = None           # job notes (plan + checklist)
     attempts: int = 0             # verification rounds
     verified: bool = False
@@ -283,6 +286,7 @@ class RunManager:
             if e["type"] == "model_call":
                 run.prompt_tokens += e["prompt_tokens"]
                 run.output_tokens += e["output_tokens"]
+                run.verify_s = round(run.verify_s + e.get("load_s", 0) + e.get("read_s", 0) + e.get("write_s", 0), 2)
             elif e["type"] == "tool_call":
                 self._record(run, {"type": "verify_step", "name": e["name"], "args": e["args"]})
             elif e["type"] == "verdict":
@@ -308,9 +312,11 @@ class RunManager:
         run.pending = pending
         run.status = "waiting_input" if pending["kind"] == "question" else "waiting_approval"
         self._save(run)
+        waited = time.time()
         while not decision["event"].wait(0.5):
             if self._stops[rid].is_set():
                 break
+        run.wait_s = round(run.wait_s + time.time() - waited, 1)
         self._decisions.pop(rid, None)
         run.pending, run.status = None, "running"
         self._save(run)

@@ -22,6 +22,7 @@ from .context import ToolContext, set_context
 from .ledger import Ledger
 from .llm import chat
 from .memory import recall_block
+from .speed import timing
 from .permissions import ASK
 from .tools import (get_schemas, internal_tools, is_internal, permission_of, preview_tool, run_tool,
                     tools_for)
@@ -90,7 +91,7 @@ class Agent:
                     temperature=0, think=False, format=PLAN_SCHEMA, num_ctx=cfg.context_length, num_predict=300)
         steps = [str(s).strip() for s in json.loads(resp.message.content).get("steps", []) if str(s).strip()][:8]
         info = {"type": "model_call", "purpose": "plan", "seconds": round(time.time() - started, 1),
-                "prompt_tokens": resp.prompt_eval_count or 0, "output_tokens": resp.eval_count or 0}
+                **timing(resp)}
         return steps or [task[:80]], info
 
     def _compact(self):
@@ -157,8 +158,7 @@ class Agent:
             yield {
                 "type": "model_call", "step": step,
                 "seconds": round(time.time() - started, 1),
-                "prompt_tokens": response.prompt_eval_count or 0,
-                "output_tokens": response.eval_count or 0,
+                **timing(response),
                 "thinking": (getattr(message, "thinking", None) or "")[:4000],
                 "content": message.content or "",
             }
@@ -204,14 +204,16 @@ class Agent:
                     approved = decision != "no"
                     yield {"type": "approval", "name": name, "approved": approved,
                            "all": decision == "all", "step": step}
+                t_tool = time.time()
                 result = run_tool(name, args, allowed=names) if approved else DENIED
+                tool_s = round(time.time() - t_tool, 2)
 
                 for event in ctx.events:  # side events: network, file changes, in-tool approvals
                     yield {**event, "step": step}
                 ctx.events.clear()
                 if notes_on and not is_internal(name):
                     self.ledger.attach(name, result)  # facts from code, not the model's claim
-                yield {"type": "tool_result", "name": name, "result": result, "step": step}
+                yield {"type": "tool_result", "name": name, "result": result, "step": step, "seconds": tool_s}
                 self._add({"role": "tool", "content": result, "tool_name": name}, tag)
 
             if notes_on:

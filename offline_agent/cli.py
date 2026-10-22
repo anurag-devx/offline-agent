@@ -103,7 +103,13 @@ def chat(cfg):
             mgr.send(run.id, text)
         seen = follow(mgr, run, seen)
     if run:
+        from .engine.speed import summarize
+        sp = summarize(run)
         print(f"{GREY}{run.file_changes} file changes. Notes: runs/{run.id}/notes.md{RESET}")
+        print(f"{GREY}Speed: {sp['total_s']:.0f}s total, {sp['model_s']:.0f}s in the model, {sp['calls']} calls · "
+              + " · ".join(f"{k} {v:.0f}s" for k, v in sp["parts"].items() if v >= 1) + RESET)
+        for tip in sp["tips"]:
+            print(f"{YELLOW}  tip: {tip}{RESET}")
 
 
 def headless_scheduler():

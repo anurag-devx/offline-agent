@@ -3,6 +3,7 @@ import streamlit as st
 
 from offline_agent.engine.audit import read_activity
 from offline_agent.engine.runs import get_manager
+from offline_agent.engine.speed import summarize
 from offline_agent.ui.common import STATUS, fmt_secs, live_run
 
 mgr = get_manager()
@@ -24,6 +25,7 @@ def overview():
         "Task": r.task[:80], "Steps": r.steps, "Tools": r.tool_calls, "Files": r.file_changes,
         "Web": r.network_requests,
         "Tokens": r.prompt_tokens + r.output_tokens, "Time": fmt_secs(r.duration()),
+        "Model time": fmt_secs(summarize(r)["model_s"]),
         "Started": r.started.replace("T", " "), "ID": r.id,
     } for r in mgr.list()]
     if rows:

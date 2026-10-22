@@ -7,6 +7,7 @@ import streamlit as st
 
 from offline_agent.engine.ledger import Ledger
 from offline_agent.engine.runs import get_manager
+from offline_agent.engine.speed import summarize
 
 STATUS = {
     "running": "🔄 running", "waiting_approval": "✋ needs your OK", "waiting_input": "💬 needs your answer", "verifying": "🔍 verifying",
@@ -56,8 +57,10 @@ def render_event(e):
             st.error(f"🔍 Not complete: {e['reason']}  \nMissing: {e['missing']}")
     elif t == "model_call":
         what = {"plan": "planned the job", "rule": "wrote the rule"}.get(e.get("purpose"), f"step {e['step']}")
-        st.caption(f"🧠 Model {what} in {e['seconds']}s "
-                   f"({e['prompt_tokens']} in / {e['output_tokens']} out tokens)")
+        detail = (f" · load {e['load_s']}s · read {e['prompt_tokens']} tok in {e['read_s']}s"
+                  f" · write {e['output_tokens']} tok in {e['write_s']}s") if "read_s" in e else \
+            f" ({e['prompt_tokens']} in / {e['output_tokens']} out tokens)"
+        st.caption(f"🧠 Model {what} in {e['seconds']}s{detail}")
         if e.get("thinking"):
             st.caption("💭 " + e["thinking"][:600].replace("\n", " ") + ("…" if len(e["thinking"]) > 600 else ""))
     elif t == "tool_call":
@@ -152,6 +155,25 @@ def _file_changes(run, key):
             b.caption("Undo already done.")
 
 
+def _speed(run, key):
+    sp = summarize(run)
+    if not sp["calls"]:
+        return
+    with st.expander(f"⚡ Speed · {sp['total_s']:.0f}s total · {sp['model_s']:.0f}s in the model · "
+                     f"{sp['calls']} model calls", expanded=False):
+        parts = {k: v for k, v in sp["parts"].items() if v > 0}
+        if parts:
+            import pandas as pd
+            st.bar_chart(pd.DataFrame({"seconds": parts}), horizontal=True, y_label="", x_label="seconds")
+        a, b, c = st.columns(3)
+        a.metric("Reading speed", f"{sp['read_tps']:.0f} tok/s", help="How fast the model reads the prompt")
+        b.metric("Writing speed", f"{sp['write_tps']:.0f} tok/s", help="How fast the model writes its reply")
+        c.metric("Tokens", f"{sp['prompt_tokens']:,} in · {sp['output_tokens']:,} out")
+        for tip in sp["tips"]:
+            st.markdown(f"- 💡 {tip}")
+        st.dataframe(sp["per_call"], hide_index=True)
+
+
 def render_run(run, key):
     mgr = get_manager()
     badge = " · 🔍 verified" if run.verified else (f" · verification round {run.attempts}" if run.attempts else "")
@@ -182,6 +204,7 @@ def render_run(run, key):
             render_event(e)
 
     _file_changes(run, key)
+    _speed(run, key)
 
     if mgr.can_continue(run.id):
         with st.form(f"follow{key}", clear_on_submit=True):
