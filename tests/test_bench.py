@@ -8,7 +8,7 @@ from offline_agent.engine.runs import RunManager
 
 def rule_from_task(messages):
     task = messages[-1]["content"]
-    folder = re.search(r"in (/\S+?) to", task).group(1)
+    folder = re.search(r"in (.+?) to a new folder", task).group(1)  # any OS: /Users/… or C:\Users\…
     return {"source_folder": folder, "question": "", "rules": [
         {"extensions": [".pdf"], "kinds": [], "name_contains": "", "destination": "all_pdf"}]}
 
