@@ -9,7 +9,7 @@ import inspect
 import json
 
 from .config import TEMPLATES_DIR, list_configs, load_agent
-from .permissions import ALLOW, ASK, CAPABILITIES, OFF, cap_title
+from .permissions import ASK, CAPABILITIES, OFF, cap_title
 from .planner import capabilities_summary
 from .tools import TOOLS, is_internal, tools_for
 

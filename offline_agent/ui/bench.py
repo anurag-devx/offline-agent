@@ -28,17 +28,22 @@ if not job or job.done:
         telegram = c1.multiselect("Telegram style", ["on", "off"], ["on"])
         voice = c2.multiselect("Full Voice", ["on", "off"], ["on"])
         notes = c5.multiselect("Job notes", ["on", "off"], [], help="Empty = as each agent is saved")
+        c6, c7 = st.columns(2)
+        route = c6.multiselect("How big tasks run", ["Triage", "Main agent", "Relay"], [],
+                               help="Empty = as each agent is saved. Relay: a PM agent splits the job into chunks.")
+        timeout = int(c7.number_input("Minutes per test before it's stopped", 1, 24 * 60, 15, step=15))
         c3, c4 = st.columns(2)
         internet = c3.checkbox("Include internet tests (News Collector, Web Researcher)")
         email = c4.checkbox("Include email tests (dry: nothing is moved)")
         variants = [" + ".join(x for x in (f"Telegram {t}" if t else "", f"Full Voice {v}" if v else "",
-                                           f"Job notes {n}" if n else "") if x)
-                    for t, v, n in itertools.product(telegram or [""], voice or [""], notes or [""])]
+                                           f"Job notes {n}" if n else "", r) if x)
+                    for t, v, n, r in itertools.product(telegram or [""], voice or [""], notes or [""],
+                                                        route or [""])]
         total = len(chosen) * max(1, len(models)) * max(1, len(variants))
         st.caption(f"{total} test runs. Local models are slow: expect about 1–5 minutes per run.")
         if st.form_submit_button("▶ Run bench", type="primary", disabled=not chosen):
             start_job(get_manager(), agents=chosen, models=models or [""], variants=variants or [""],
-                      internet=internet, email=email)
+                      internet=internet, email=email, timeout=timeout * 60)
             st.rerun()
 
 

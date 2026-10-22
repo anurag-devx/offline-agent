@@ -23,7 +23,6 @@ from pathlib import Path
 from . import llm
 from .config import VerifyConfig
 from .speed import timing
-from .verifier import verify
 
 MAX_CHUNKS = 12
 CHUNK_TRIES = 3      # tries per chunk per round

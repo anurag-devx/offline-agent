@@ -12,7 +12,7 @@ import re
 from . import llm
 from .config import AgentConfig
 from .paths import resolve_folder
-from .permissions import ALLOW, ASK, CAPABILITIES, GROUPS, OFF, Policy, cap_title, group_of
+from .permissions import ALLOW, ASK, CAPABILITIES, OFF, Policy, cap_title, group_of
 from .tools import TOOLS, describe, permission_of, tools_for
 
 
@@ -77,7 +77,7 @@ def workflow_dot(cfg):
         'rankdir=LR; bgcolor="transparent";',
         'node [shape=box, style="rounded,filled", fillcolor="#eef2f7", color="#94a3b8", fontname="Helvetica", fontsize=11];',
         'edge [color="#64748b", fontname="Helvetica", fontsize=9];',
-        f'you [label="You\\n(task)", fillcolor="#fde68a"];',
+        'you [label="You\\n(task)", fillcolor="#fde68a"];',
         f'model [label="{cfg.name}\\n{cfg.model}\\non this computer", fillcolor="#bfdbfe"];',
         'answer [label="Answer", fillcolor="#bbf7d0"];',
         'you -> model;',
