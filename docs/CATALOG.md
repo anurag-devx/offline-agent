@@ -142,7 +142,7 @@ Searches the web, reads pages from approved sites, and writes a report.
 
 Builds a small static website (HTML/CSS/JS) in a workspace folder.
 
-**Good for:** Small static websites: landing pages, portfolios, event pages · HTML/CSS/JS without frameworks
+**Good for:** Small static websites: landing pages, portfolios, event pages · HTML/CSS/JS without frameworks · Interactive pages (carts, filters, forms with validation, dark mode) and SVG illustrations
 **Not for:** Web apps with a backend or database · Large multi-page sites
 **Needs:** Files: read, create, modify in the workspace. Asks before: modify. Internet: reads pages on developer.mozilla.org. Can ask you questions during a run.
 **How it works:** Agent: the model works step by step with tools

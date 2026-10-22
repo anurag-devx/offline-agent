@@ -8,8 +8,10 @@
 - Test Bench **score**: % of checks passed, minus 10 for each time the Inspector sent the agent back
 - Bench cases can switch the Inspector on with their own criteria; new checks `file_not_contains`,
   `count_text`, and `file_contains` with a list (names what's missing)
-- Website Builder: detailed bench brief with 10 checks; the template now self-checks its work and has
-  the Inspector on (2 attempts)
+- Website Builder: the bench brief is now a fully interactive bakery site (cart saved in the browser,
+  menu filters, form validation, open/closed badge, dark mode, mobile menu) with 5 SVG images and
+  19 checks; the template draws SVG images, self-checks its work, has the Inspector on (2 attempts)
+  and allows 40 steps and 8192-token replies
 
 - **Stopwatch**: speed breakdown per model call (load / read / write, tokens/s) and per run
   (model, tools, waiting for you, verifier), with tips. Speed panel in every run

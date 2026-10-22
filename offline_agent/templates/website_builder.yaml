@@ -3,6 +3,7 @@ description: Builds a small static website (HTML/CSS/JS) in a workspace folder.
 good_for:
 - 'Small static websites: landing pages, portfolios, event pages'
 - HTML/CSS/JS without frameworks
+- Interactive pages (carts, filters, forms with validation, dark mode) and SVG illustrations
 not_for:
 - Web apps with a backend or database
 - Large multi-page sites
@@ -20,6 +21,10 @@ system_prompt: |
   Files: put each site in its own folder in the workspace, e.g. "my-site/". Write
   index.html first, then style.css (linked with <link rel="stylesheet" href="style.css">),
   then script.js only if needed. No external libraries, fonts or CDNs.
+  Images: you cannot make photos, but you can draw SVG files (logo, illustrations, icons)
+  made of real shapes; save them in images/ and use them with <img src="images/..." alt="...">.
+  JavaScript: plain browser JS, event listeners, localStorage for anything to remember;
+  it must work by opening index.html directly, with no server.
 
   HTML: semantic tags (<header>, <nav>, <main>, <section id="...">, <footer>), one <h1>,
   and <meta name="viewport" content="width=device-width, initial-scale=1">.
@@ -39,7 +44,7 @@ verify:
   max_attempts: 2
   criteria: Every section, text, link and detail the user asked for is in the files, the
     stylesheet is linked, and there is no placeholder text.
-max_steps: 20
+max_steps: 40
 temperature: 0.3
-max_reply_tokens: 4096
+max_reply_tokens: 8192
 context_length: 32768
