@@ -10,6 +10,9 @@
   `OFFLINE_AGENT_KEEP_ALIVE` to change) and uses one context size, so Ollama doesn't reload;
   the Speed panel estimates how much of each prompt Ollama reused
 - **Web Cache**: the same address twice in one job is downloaded once
+- Relay: the PM sees the team's tools; a team that can't create files gets text chunks (code enforces
+  it); questions get no output file; the PM writes the final answer from the results; a tool error is
+  shown to the worker, and a chunk stops retrying when the same failure repeats or permission is missing
 
 ## v0.3.1 (2026-10-23)
 

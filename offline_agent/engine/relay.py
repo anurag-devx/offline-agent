@@ -24,6 +24,7 @@ from . import llm
 from .config import VerifyConfig
 from .findings import PATCH_RULE, as_text
 from .speed import timing
+from .tools import tools_for
 
 MAX_CHUNKS = 12
 CHUNK_TRIES = 3      # tries per chunk per round
@@ -73,8 +74,12 @@ Rules:
   this is how separate workers' pieces fit together.
 - `understanding`: one sentence restating the job.
 
-The team's role and tools:
-{role}"""
+- Questions and analysis that need no file: `output` "" (the worker's reply is the result).
+{files_rule}
+The team's role:
+{role}
+
+The team's tools: {tools}"""
 
 PM_REDO = """You are the PM. A reviewer checked the finished job and found problems.
 Decide which chunks must be redone to fix them. For each, give the chunk id and `fix`: exactly what
@@ -244,13 +249,20 @@ class Relay:
 
     def plan(self):
         task = self.state["task"]
-        system = PM_PLAN.format(max=MAX_CHUNKS, role=self.cfg.system_prompt[:2000])
+        names = [n for n in tools_for(self.cfg) if not n.startswith("_")]
+        can_write = "write_file" in names
+        system = PM_PLAN.format(
+            max=MAX_CHUNKS, role=self.cfg.system_prompt[:2000], tools=", ".join(names) or "none",
+            files_rule="" if can_write else "- This team CANNOT create files: every chunk's `output` must be \"\".")
         plan = None
         for attempt in range(2):
             try:
                 raw, call = _call(self.cfg, system, task, PLAN_SCHEMA, 4000)
                 self._model(call, "relay plan")
                 plan = clean_plan(raw, task)
+                if not can_write:  # code enforces it: no file outputs the team can't make
+                    for c in plan["chunks"]:
+                        c["output"], c["must_contain"] = "", []
                 break
             except Exception as e:
                 self._event(phase="plan", content=f"PM plan failed ({e}); {'retrying' if not attempt else 'one chunk'}.")
@@ -280,16 +292,22 @@ class Relay:
         if final == "stopped":
             chunk["tries"] -= 1
             return
-        chunk["note"] = (self.run.answer or "")[:300]
+        chunk["note"] = (self.run.answer or "")[:1500]
+        before = list(chunk["problems"])
         if chunk["output"]:
             chunk["path"] = self._find(chunk, since)
             chunk["problems"] = check_output(chunk, chunk["path"])
         else:
             chunk["problems"] = [] if final == "completed" and chunk["note"].strip() else ["the worker gave no result"]
+        errors = sorted({str(e["result"])[:160] for e in self.run.events[since:]
+                         if e["type"] == "tool_result" and str(e["result"]).startswith(("Error", "The user denied"))})
+        if chunk["problems"] and errors:
+            chunk["problems"] += [f"tool error: {x}" for x in errors[:3]]
         if not chunk["problems"]:
             chunk["status"] = "done"
-        elif chunk["tries"] >= CHUNK_TRIES:
-            chunk["status"] = "failed"
+        elif chunk["tries"] >= CHUNK_TRIES or (chunk["tries"] > 1 and chunk["problems"] == before) \
+                or any("no permission" in x for x in errors):
+            chunk["status"] = "failed"  # out of tries, the same failure again, or not allowed: retrying won't help
         self._event(phase="build", chunk=chunk["id"], status=chunk["status"], problems=chunk["problems"],
                     content=f"{chunk['id']} " + ("passed" if chunk["status"] == "done" else
                                                  "failed: " + "; ".join(chunk["problems"])))
@@ -353,12 +371,35 @@ class Relay:
             return
         if verdict["complete"]:
             self.run.verified = True
+            self.answer()
             st["phase"] = "done"
         elif st["round"] > REVIEW_ROUNDS:
             st["phase"] = "failed"
         else:
             self.send_back(verdict)
         self._save()
+
+    def answer(self):
+        """The PM pulls the results together into the answer for the user (when there's text to give)."""
+        st = self.state
+        texts = [c for c in st["chunks"] if not c["output"] and c["status"] == "done" and c["note"].strip()]
+        if not texts:
+            return
+        results = "\n\n".join(f"[{c['title']}]\n{c['note']}" for c in texts)
+        files = [c["path"] or c["output"] for c in st["chunks"] if c["output"] and c["status"] == "done"]
+        prompt = ("You are the PM. Your team finished the user's task. Write the final answer to the user from "
+                  "the team's results: complete and well organised, in plain words. Do not mention chunks, "
+                  "workers or the PM." + (f" Files made: {', '.join(files)}." if files else ""))
+        try:
+            started = time.time()
+            resp = llm.chat(self.cfg.model, [{"role": "system", "content": prompt},
+                                             {"role": "user", "content": f"TASK:\n{st['task'][:3000]}\n\nRESULTS:\n{results[:12000]}"}],
+                            temperature=0.2, think=False, num_ctx=self.cfg.context_length, num_predict=3000)
+            self._model({"type": "model_call", "seconds": round(time.time() - started, 1), **timing(resp),
+                         "thinking": "", "content": ""}, "relay answer")
+            st["final"] = (resp.message.content or "").strip()
+        except Exception as e:
+            self._event(phase="review", content=f"PM could not write the final answer ({e}).")
 
     def send_back(self, verdict):
         """Findings that name a chunk's file go straight back to that chunk (code, no model call).
@@ -406,7 +447,8 @@ class Relay:
     def report(self):
         st = self.state
         done = [c for c in st["chunks"] if c["status"] == "done"]
-        lines = [f"Relay: {len(done)}/{len(st['chunks'])} chunks done · review "
+        lines = ([st["final"], "", "---", ""] if st.get("final") else []) + [
+                 f"Relay: {len(done)}/{len(st['chunks'])} chunks done · review "
                  + ("passed" if self.run.verified else "not passed")
                  + f" · {round(st.get('elapsed_s', 0) / 60)} min", ""]
         if st.get("understanding"):

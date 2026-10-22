@@ -141,3 +141,33 @@ def test_review_findings_go_straight_to_the_chunk_that_owns_the_file(fake, tmp_p
     brief = [e["content"] for e in run.events if e.get("worker")][-1]
     assert "site/index.html line 1: no footer" in brief and "1 | <h1>Crumbs</h1>" in brief and "insert_lines" in brief
     assert "<footer>" in (tmp_path / "site" / "index.html").read_text(encoding="utf-8")
+
+
+def test_team_without_file_tools_answers_in_text_and_pm_writes_the_answer(fake, tmp_path):
+    plan = {"understanding": "A question.", "contract": "", "chunks": [
+        {"id": "c1", "title": "Answer", "output": "answer.txt", "goal": "capital of France",
+         "depends_on": [], "must_contain": ["Paris"]}]}
+    fake.format_replies = {"chunks": plan, "complete": {"complete": True, "reason": "answered", "missing": ""}}
+    fake.script = ["Paris is the capital of France.",   # worker: no file tools, so a text result
+                   "done",                               # verifier
+                   "The capital of France is Paris."]    # PM's final answer
+    run = RunManager().start(config(route="relay", max_steps=4), "What is the capital of France?")
+    wait(run)
+    assert run.status == "completed", run.answer
+    assert run.relay["chunks"][0]["output"] == ""          # code removed the file the team can't make
+    assert run.answer.startswith("The capital of France is Paris.")
+
+
+def test_a_permission_error_is_not_retried(fake, tmp_path):
+    plan = {**PLAN, "chunks": PLAN["chunks"][:1]}
+    fake.format_replies = {"chunks": plan, "complete": {"complete": False, "reason": "no file", "missing": "file"},
+                           "redo": {"redo": []}}
+    cfg = config(route="relay", max_steps=4, permissions={"files": {"folders": [str(tmp_path)], "read": "allow",
+                                                                    "create": "allow"}})
+    cfg.permissions.files.max_changes = 0  # every write is refused by code
+    fake.script = [[("write_file", {"path": "site/index.html", "content": "<h1>Crumbs</h1> style.css"})], "made"] * 3
+    run = RunManager().start(cfg, "build the page")
+    wait(run)
+    c1 = run.relay["chunks"][0]
+    assert c1["tries"] == 2 and c1["status"] == "failed"  # same failure twice: stop retrying
+    assert any(p.startswith("tool error:") for p in c1["problems"])
