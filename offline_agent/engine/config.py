@@ -33,6 +33,9 @@ class VerifyConfig:
 class AgentConfig:
     name: str = "New Agent"
     description: str = ""
+    good_for: list = field(default_factory=list)   # Catalog card: what it's good at
+    not_for: list = field(default_factory=list)    # Catalog card: what it shouldn't be used for
+    examples: list = field(default_factory=list)   # Catalog card: example tasks to copy
     model: str = "qwen3.5:9b"
     system_prompt: str = "You are a helpful assistant."
     permissions: Policy = field(default_factory=Policy)
@@ -61,7 +64,8 @@ class AgentConfig:
         return cls(**{k: v for k, v in data.items() if k in known})
 
     def to_dict(self):
-        return {"name": self.name, "description": self.description, "model": self.model,
+        return {"name": self.name, "description": self.description, "good_for": self.good_for,
+                "not_for": self.not_for, "examples": self.examples, "model": self.model,
                 "system_prompt": self.system_prompt, "permissions": self.permissions.to_dict(),
                 "max_steps": self.max_steps, "temperature": self.temperature, "think": self.think,
                 "context_length": self.context_length, "verify": asdict(self.verify),

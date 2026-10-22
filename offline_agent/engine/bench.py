@@ -212,8 +212,9 @@ class BenchJob:
                         self.results.append({**row, **run_case(self.manager, cfg, case, sandbox, self._stop.is_set)})
                     except Exception as e:
                         self.results.append({**row, "status": "error", "passed": False, "why": str(e)})
-        self.current, self.done = "", True
-        self.save()
+        self.current = ""
+        self.save()        # write the report first...
+        self.done = True   # ...then say we're done, so readers always find it
         audit.log("bench_finished", job=self.id, cases=len(self.results),
                   passed=sum(1 for r in self.results if r.get("passed")))
 

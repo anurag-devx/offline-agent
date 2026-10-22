@@ -1,5 +1,15 @@
 name: Gmail Sorter
 description: Sorts emails into folders/labels by sender or subject. Rule mode - the model writes rules, you approve, code moves and checks.
+good_for:
+- Sorting email by sender or subject into folders/labels
+- Moving receipts, newsletters, notifications
+not_for:
+- Replying to or sending email (it can't)
+- Deleting email (it can't)
+- Sorting by what an email says
+examples:
+- Move emails from amazon and flipkart to a folder called Receipts.
+- Move unread emails with 'newsletter' in the subject to Newsletters.
 model: qwen3.5:9b
 system_prompt: |
   You organize the user's inbox into folders (Gmail labels) by sender or subject.

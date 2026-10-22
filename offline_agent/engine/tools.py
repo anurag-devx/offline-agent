@@ -14,10 +14,11 @@ TOOLS = {}  # name -> {"function", "schema", "permission"}
 _JSON_TYPES = {str: "string", int: "integer", float: "number", bool: "boolean"}
 
 
-def tool(permission=None, preview=None):
+def tool(permission=None, preview=None, safety="", example=""):
     """Decorator. permission is a capability like "files.move" (see permissions.py).
     None means the tool is always available (e.g. calculator).
-    preview(**args) -> str, optional: describes what a call WOULD do, shown when you approve it."""
+    preview(**args) -> str, optional: describes what a call WOULD do, shown when you approve it.
+    safety, example: shown on the tool's Catalog card (what it will never do; what its output looks like)."""
     def register(fn):
         summary, arg_docs = _parse_docstring(inspect.getdoc(fn) or "")
         properties, required = {}, []
@@ -32,6 +33,8 @@ def tool(permission=None, preview=None):
             "function": fn,
             "permission": permission,
             "preview": preview,
+            "safety": safety,
+            "example": example,
             "schema": {
                 "type": "function",
                 "function": {

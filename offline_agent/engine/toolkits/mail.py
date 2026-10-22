@@ -105,7 +105,7 @@ def list_folder_names(conn):
     return names
 
 
-@tool("email.read")
+@tool("email.read", safety='Reads folder names only, from your mail server.', example='INBOX\nReceipts\n[Gmail]/Spam')
 def email_folders():
     """List the mailbox folders (in Gmail these are labels, e.g. INBOX, [Gmail]/Spam)."""
     conn = _connect()
@@ -115,7 +115,7 @@ def email_folders():
         conn.logout()
 
 
-@tool("email.read")
+@tool("email.read", safety='Does not mark mail as read. Only allowed mail folders.', example='OK 20 emails in INBOX (uid | date | from | subject)\n102 | 20 Oct 14:05 | Amazon (amazon.in) | Your order shipped')
 def email_list(folder: str = "INBOX", limit: int = 20, unread_only: bool = False):
     """List the newest emails in a folder: uid, date, sender and subject. Does not mark them read.
 
@@ -146,7 +146,7 @@ def email_list(folder: str = "INBOX", limit: int = 20, unread_only: bool = False
         conn.logout()
 
 
-@tool("email.read")
+@tool("email.read", safety='Does not mark mail as read. Long emails come in pages.', example='From: Amazon (amazon.in) · 20 Oct 14:05\nSubject: Your order shipped\n\n…')
 def email_read(uid: str, folder: str = "INBOX", offset: int = 0, limit: int = 1500):
     """Read one email's headers and text, one page at a time. Does not mark it read.
 
@@ -171,7 +171,7 @@ def email_read(uid: str, folder: str = "INBOX", offset: int = 0, limit: int = 15
         conn.logout()
 
 
-@tool("email.organize")
+@tool("email.organize", safety='Moves only; there is no send or delete tool. Only allowed mail folders.', example='Moved email 102 from INBOX to Receipts.')
 def email_move(uid: str, to_folder: str, from_folder: str = "INBOX"):
     """Move an email to another folder (Gmail: label), creating the folder if needed.
 
@@ -194,7 +194,7 @@ def email_move(uid: str, to_folder: str, from_folder: str = "INBOX"):
         conn.logout()
 
 
-@tool("email.organize")
+@tool("email.organize", safety='Changes the read flag only.', example='Marked email 102 as read.')
 def email_mark_read(uid: str, folder: str = "INBOX"):
     """Mark an email as read.
 

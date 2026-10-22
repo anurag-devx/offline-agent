@@ -137,7 +137,7 @@ def _matches(p, kinds, exts, contains):
     return not contains or contains.lower() in p.name.lower()
 
 
-@tool("files.read")
+@tool("files.read", safety="Only the agent's folders; hidden files are skipped.", example='OK ~/Downloads filter .pdf · 140 files · 0 folders · .pdf:140\na.pdf | document | 297.6 KB')
 def list_folder(path: str = "", recursive: bool = False, kinds: str = "", extensions: str = "",
                 limit: int = 50):
     """List a folder. First line: counts per file type. Then one line per item: name | kind | size.
@@ -182,7 +182,7 @@ def list_folder(path: str = "", recursive: bool = False, kinds: str = "", extens
     return "\n".join(out)
 
 
-@tool("files.read")
+@tool("files.read", safety="Only the agent's folders and allowed file types. Long files come in pages.", example='(first 6000 characters)\n+3000 more chars. Next page: offset=6000')
 def read_file(path: str, offset: int = 0, limit: int = 6000):
     """Read a text file, one page at a time.
 
@@ -198,7 +198,7 @@ def read_file(path: str, offset: int = 0, limit: int = 6000):
     return page(p.read_text(encoding="utf-8", errors="replace"), offset, min(int(limit), MAX_READ), short(p))
 
 
-@tool("files.create")
+@tool("files.create", safety="Only inside the agent's folders. Counts toward the change limit.", example='OK created ~/Downloads/all_pdf/')
 def create_folder(path: str):
     """Create a folder (and any missing parent folders). Does nothing if it already exists.
 
@@ -214,7 +214,7 @@ def create_folder(path: str):
     return f"OK created {short(p)}/"
 
 
-@tool("files.create")
+@tool("files.create", safety="Creates NEW files only; never overwrites. Only the agent's folders.", example='OK created ~/site/index.html (2140 chars)')
 def write_file(path: str, content: str):
     """Create a NEW text file. Fails if the file already exists (use overwrite_file for that).
 
@@ -233,7 +233,7 @@ def write_file(path: str, content: str):
     return f"OK created {short(p)} ({len(content)} chars)"
 
 
-@tool("files.modify")
+@tool("files.modify", safety='Changes an existing file: use Ask first. Recorded in the file log.', example='OK replaced ~/site/style.css (980 chars)')
 def overwrite_file(path: str, content: str):
     """Replace the content of an EXISTING text file.
 
@@ -251,7 +251,7 @@ def overwrite_file(path: str, content: str):
     return f"OK replaced {short(p)} ({len(content)} chars)"
 
 
-@tool("files.modify")
+@tool("files.modify", safety="Adds a line to notes.md in the agent's first folder.", example='Note saved to notes.md.')
 def append_note(text: str):
     """Add a timestamped line to notes.md (in the agent's first folder, usually the workspace).
 
@@ -267,7 +267,7 @@ def append_note(text: str):
     return "Note saved to notes.md."
 
 
-@tool("files.move")
+@tool("files.move", safety='Never overwrites: name clashes get _1, _2. Undo moves it back.', example='OK moved ~/Downloads/a.pdf → ~/Downloads/all_pdf/a.pdf')
 def move_file(source: str, destination_folder: str, new_name: str = ""):
     """Move (or rename) a file into a folder. Creates the folder if needed (if allowed).
     Never overwrites: if the name exists, it adds _1, _2...
@@ -316,7 +316,7 @@ def _preview_move_files(folder, destination_folder, extensions="", kinds="", nam
     return f"Move {len(picked)} files to {destination_folder}: {names or '(nothing matches)'}"
 
 
-@tool("files.move", preview=_preview_move_files)
+@tool("files.move", preview=_preview_move_files, safety='Needs at least one filter; top level only (subfolders untouched); never overwrites; you see the exact file list before approving.', example='OK moved 138/140 ~/Downloads → ~/Downloads/all_pdf · NOT MOVED 2: …')
 def move_files(folder: str, destination_folder: str, extensions: str = "", kinds: str = "",
                name_contains: str = ""):
     """Move ALL matching files from a folder (top level only) into another folder, in one step.
@@ -351,7 +351,7 @@ def move_files(folder: str, destination_folder: str, extensions: str = "", kinds
     return msg
 
 
-@tool("files.delete")
+@tool("files.delete", safety='Sends files to the Trash (recoverable), files only, never folders. Use Ask first.', example='OK ~/Downloads/old.zip → Trash')
 def delete_file(path: str):
     """Send a file to the Trash (recoverable). Only when the user explicitly asked to delete it.
 

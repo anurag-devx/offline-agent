@@ -15,12 +15,15 @@ python -m pytest -q          # no Ollama needed: tests use a fake model
 ## Easy first contributions
 
 **Add a template** (no Python needed): copy a file in `offline_agent/templates/`, change the name, prompt and
-permissions, and check it loads in the Studio. Give it the smallest permissions that work.
+permissions, and check it loads in the Studio. Give it the smallest permissions that work. Fill in its card:
+`description`, `good_for`, `not_for`, `examples`, then run `offline-agent catalog --write`.
 
 **Add a tool** (about 10 lines) in `offline_agent/engine/toolkits/` (import the module in `engine/tools.py`):
 
 ```python
-@tool("files.read")          # the capability that must be on; @tool() = always available
+@tool("files.read",          # the capability that must be on; @tool() = always available
+      safety="Reads only; only the agent's folders.",   # shown on its Catalog card
+      example="OK 1532 words")
 def word_count(path: str):
     """Count the words in a text file.
 
@@ -30,7 +33,7 @@ def word_count(path: str):
     return f"OK {len(read_file(path).split())} words"
 ```
 
-Rules for tools:
+Rules for tools (a test checks the card parts):
 - The docstring and type hints are what the model sees: make them clear.
 - Return a short, telegram-style string (`OK ...` / `Error: ...`). Never raise for expected problems.
 - Go through `files.resolve()` for any path; record changes with `_count_change()`.

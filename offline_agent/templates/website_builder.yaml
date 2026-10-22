@@ -1,5 +1,14 @@
 name: Website Builder
 description: Builds a small static website (HTML/CSS/JS) in a workspace folder.
+good_for:
+- 'Small static websites: landing pages, portfolios, event pages'
+- HTML/CSS/JS without frameworks
+not_for:
+- Web apps with a backend or database
+- Large multi-page sites
+examples:
+- Build a one-page website for a bakery called Crumbs in my-site/.
+- Add a contact section with an email link to my-site/index.html.
 model: qwen3.5:9b
 system_prompt: |
   You build small, clean static websites. Put every site in its own folder in the

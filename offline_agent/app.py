@@ -25,6 +25,7 @@ st.set_page_config(page_title="Offline Agent Studio", page_icon="🤖", layout="
 pages = st.navigation([
     st.Page(str(PKG / "ui" / "studio.py"), title="Studio", icon="🛠", default=True),
     st.Page(str(PKG / "ui" / "runs.py"), title="Runs", icon="📊"),
+    st.Page(str(PKG / "ui" / "catalog.py"), title="Catalog", icon="📖"),
     st.Page(str(PKG / "ui" / "workspace.py"), title="Workspace", icon="📁"),
     st.Page(str(PKG / "ui" / "memory.py"), title="Memory", icon="🧠"),
     st.Page(str(PKG / "ui" / "schedules.py"), title="Schedules", icon="⏰"),

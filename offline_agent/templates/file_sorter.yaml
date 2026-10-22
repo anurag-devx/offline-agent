@@ -1,5 +1,15 @@
 name: File Sorter
 description: Organizes files in a folder the way you ask. Rule mode - the model writes a rule, you approve it, code moves and checks.
+good_for:
+- Sorting a folder by file type
+- Moving all files of one type into a folder
+- Cleaning up Downloads
+not_for:
+- Sorting by what's inside a file (e.g. invoices vs letters)
+- Folders inside folders (top level only)
+examples:
+- Move all pdf files in ~/Downloads to a new folder all_pdf.
+- 'Sort the files in ~/Downloads by kind: image → Images, document → Documents, video → Videos.'
 model: qwen3.5:9b
 system_prompt: |
   You organize files inside ONE folder, following the user's task exactly.

@@ -1,5 +1,15 @@
 name: File Helper
 description: Reads and summarizes files in the workspace; asks before creating files.
+good_for:
+- Reading and summarizing text files
+- Answering questions about a file
+- Writing new text files
+not_for:
+- Binary files like PDFs or images
+- Changing existing files (it asks before creating anything)
+examples:
+- Summarize notes.txt in three bullet points.
+- List the files in the workspace and tell me which are largest.
 model: qwen3.5:9b
 system_prompt: |
   You help the user with text files in the workspace folder.

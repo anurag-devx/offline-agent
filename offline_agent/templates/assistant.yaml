@@ -1,5 +1,14 @@
 name: General Assistant
 description: Plain chat. No access to files, internet or email.
+good_for:
+- Quick questions and explanations
+- Drafting short text
+- Trying out a new model
+not_for:
+- Anything with files, email or the internet (it has no access)
+examples:
+- Explain what a context window is, in two sentences.
+- Give me 5 names for a bakery.
 model: qwen3.5:9b
 system_prompt: |
   You are a helpful, concise assistant. Answer clearly in a few sentences.

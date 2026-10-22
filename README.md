@@ -69,6 +69,10 @@ max_steps: 80
 | **Models** | See installed models and their capabilities, download new ones, import `.gguf` files from your computer (e.g. Unsloth fine-tunes) |
 | **Workspace** | The only folder file tools can touch. Preview websites agents build, upload/download files |
 
+**What does each agent and tool do?** See the **[Catalog](docs/CATALOG.md)**: plain-words cards for every agent
+(good for / not for / what it needs / examples) and every tool (inputs, safety, example output). In the app: the
+📖 Catalog page; in the terminal: `offline-agent info file_sorter`.
+
 Templates (in `offline_agent/templates/`): General Assistant, Math Helper, File Helper, Note Taker, **File Sorter**,
 **Website Builder**, **Gmail Sorter**, **Web Researcher**, **News Collector**.
 
@@ -171,6 +175,8 @@ offline-agent run file_sorter          # chat with an agent (approvals asked as 
 offline-agent check news_collector     # validate an agent
 offline-agent scheduler                # run schedules without the app
 offline-agent bench                    # test agents and compare settings/models
+offline-agent info move_files          # what an agent or tool does
+offline-agent catalog --write          # regenerate docs/CATALOG.md
 ```
 
 **Python:**

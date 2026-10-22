@@ -1,5 +1,14 @@
 name: News Collector
 description: Collects today's stock-market headlines from approved news feeds into a text file in the workspace.
+good_for:
+- Daily stock-market headlines into a text file
+- Headlines about one company (keywords)
+not_for:
+- Full articles or analysis
+- Sites without an RSS feed
+examples:
+- Collect today's stock market headlines and save them to a text file.
+- Collect today's headlines about Reliance.
 model: qwen3.5:9b
 system_prompt: |
   You collect today's stock-market news headlines.

@@ -339,6 +339,7 @@ class RunManager:
         event = {"time": _now(), **event}
         with self._lock:
             run.events.append(event)
+            (RUNS_DIR / run.id).mkdir(parents=True, exist_ok=True)  # robust to late writes / moved folders
             with open(RUNS_DIR / run.id / "events.jsonl", "a", encoding="utf-8") as f:
                 f.write(json.dumps(event, default=str) + "\n")
         self._save(run)
@@ -346,6 +347,7 @@ class RunManager:
     def _save(self, run):
         meta = {k: v for k, v in asdict(run).items() if k != "events"}
         with self._lock:
+            (RUNS_DIR / run.id).mkdir(parents=True, exist_ok=True)
             (RUNS_DIR / run.id / "meta.json").write_text(
                 json.dumps(meta, indent=2, default=str), encoding="utf-8")
 

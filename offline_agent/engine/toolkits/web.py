@@ -112,7 +112,7 @@ class _TextExtractor(HTMLParser):
         return "\n".join(line for line in lines if line)
 
 
-@tool("internet.read")
+@tool("internet.read", safety='Allowed sites only; redirects to other sites are blocked; every request is logged. Long pages come in pages.', example='Title: Ollama\n(first 4000 characters)\n+8200 more chars. Next page: offset=4000')
 def fetch_url(url: str, offset: int = 0, limit: int = 4000):
     """Read a web page as plain text, one page at a time. Only the agent's allowed sites.
 
@@ -152,7 +152,7 @@ class _SearchParser(HTMLParser):
             self._href = None
 
 
-@tool("internet.search")
+@tool("internet.search", safety='Your search words are sent to DuckDuckGo. Reading a result needs Read web pages + an allowed site.', example='OK 8 results\n1. Ollama | https://ollama.com')
 def web_search(query: str):
     """Search the web (DuckDuckGo) and return the top results as title + link.
     Your query is sent to DuckDuckGo. To read a result, use fetch_url (allowed sites only).

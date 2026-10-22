@@ -10,7 +10,7 @@ def _ledger():
     return ledger
 
 
-@tool("internal.ledger")
+@tool("internal.ledger", safety="Touches only the job notes. A 'done' is refused if the step's tool calls all failed.", example='OK step 2 done · NOW step 3: Check nothing left')
 def update_step(step: int, status: str = "done", note: str = ""):
     """Close a step in your job notes after doing it.
 
@@ -22,7 +22,7 @@ def update_step(step: int, status: str = "done", note: str = ""):
     return _ledger().update(step, status, note)
 
 
-@tool("internal.ledger")
+@tool("internal.ledger", safety='Touches only the job notes.', example='OK added step 4: Report totals')
 def add_step(title: str):
     """Add a step to your job notes when you discover more work is needed.
 

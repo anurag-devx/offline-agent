@@ -74,7 +74,7 @@ def parse_feed(xml_text):
     return title, items
 
 
-@tool("internet.read")
+@tool("internet.read", safety='Allowed sites only; every request is logged. Refuses feeds with XML entities.', example='OK feed Markets · 3/40 items · keywords sensex\n1. Sensex jumps 600 points | 2026-10-22 14:05 | https://…')
 def read_feed(url: str, keywords: str = "", today_only: bool = False, since_hours: int = 0,
               limit: int = 20):
     """Read a news feed (RSS/Atom) and return one line per item: headline | time | link.

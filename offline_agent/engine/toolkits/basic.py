@@ -26,7 +26,7 @@ def _eval(node):
     raise ValueError("Only numbers and + - * / // % ** ( ) are allowed.")
 
 
-@tool()
+@tool(safety="Only numbers and + - * / // % ** ( ). It can't run code.", example='223.2')
 def calculator(expression: str):
     """Evaluate a math expression and return the exact result.
 
@@ -36,7 +36,7 @@ def calculator(expression: str):
     return _eval(ast.parse(expression, mode="eval").body)
 
 
-@tool()
+@tool(safety='Reads the clock only.', example='Thursday, 22 October 2026, 15:51')
 def current_datetime():
     """Get the current local date and time."""
     return datetime.now().strftime("%A, %d %B %Y, %H:%M")

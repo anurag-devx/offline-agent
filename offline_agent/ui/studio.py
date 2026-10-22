@@ -14,6 +14,7 @@ from offline_agent.engine.config import AGENTS_DIR, ROOT, TEMPLATES_DIR, VerifyC
 from offline_agent.engine.paths import is_protected, resolve_folder
 from offline_agent.engine.permissions import (ALLOW, ASK, CAPABILITIES, GROUPS, MODE_LABEL, OFF, RISK_ICON,
                                 EmailPolicy, FilePolicy, InteractionPolicy, InternetPolicy, MemoryPolicy, Policy)
+from offline_agent.engine.catalog import agent_card
 from offline_agent.engine.planner import capabilities_summary, generate_agent, plan_task, workflow_dot
 from offline_agent.engine.tools import tools_for
 from offline_agent.ui.common import live_run, render_event
@@ -48,6 +49,17 @@ if ss.get("load_key") != load_key:  # only reload when the selection changes
     load(load_agent(path) if path else AgentConfig())
 base, fid = ss.base, ss.form_id
 pol = base.permissions
+
+card = agent_card(base)  # the agent's Catalog card, before you change anything
+with st.expander(f"📖 About {base.name}: {card['what']}", expanded=source == "Template"):
+    if card["good_for"]:
+        st.markdown("✅ **Good for:** " + " · ".join(card["good_for"]))
+    if card["not_for"]:
+        st.markdown("⛔ **Not for:** " + " · ".join(card["not_for"]))
+    st.markdown(f"🔐 **Needs:** {card['needs']}")
+    st.markdown(f"⚙️ **How it works:** {card['mode']}")
+    if card["examples"]:
+        st.markdown("💬 **Try:** " + " · ".join(f"*{e}*" for e in card["examples"]))
 
 
 def k(name):

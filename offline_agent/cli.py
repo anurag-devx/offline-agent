@@ -7,6 +7,8 @@ offline-agent command line.
   offline-agent check <agent.yaml>     validate an agent
   offline-agent scheduler              run schedules without the app (Ctrl+C to stop)
   offline-agent bench                  test agents and compare settings/models
+  offline-agent info <agent|tool>      what an agent or tool does, in plain words
+  offline-agent catalog [--write]      every agent and tool (--write updates docs/CATALOG.md)
   offline-agent where                  show where your data is stored
 """
 import argparse
@@ -197,6 +199,10 @@ def main(argv=None):
     p_bench.add_argument("--full-voice", default="on", help="on, off or on,off")
     p_bench.add_argument("--internet", action="store_true", help="include internet tests")
     p_bench.add_argument("--email", action="store_true", help="include email tests (dry)")
+    p_info = sub.add_parser("info", help="what an agent or tool does")
+    p_info.add_argument("name", help="agent (e.g. file_sorter) or tool (e.g. move_files)")
+    p_cat = sub.add_parser("catalog", help="every agent and tool")
+    p_cat.add_argument("--write", action="store_true", help="update docs/CATALOG.md")
     sub.add_parser("where", help="show where your data is stored")
     args, extra = parser.parse_known_args(argv)
 
@@ -208,6 +214,25 @@ def main(argv=None):
         return run_agent(args.agent, check_only=True)
     if args.cmd == "scheduler":
         return headless_scheduler()
+    if args.cmd == "info":
+        from .engine.catalog import agent_markdown, find, tool_markdown
+        kind, card = find(args.name)
+        if not card:
+            raise SystemExit(f"No agent or tool called {args.name}. Try: offline-agent catalog")
+        print(agent_markdown(card, "#") if kind == "agent" else tool_markdown(card, "#"))
+        return
+    if args.cmd == "catalog":
+        from pathlib import Path
+        from .engine.catalog import catalog_markdown
+        text = catalog_markdown()
+        if args.write:
+            out = Path(__file__).resolve().parent.parent / "docs" / "CATALOG.md"
+            out.parent.mkdir(exist_ok=True)
+            out.write_text(text, encoding="utf-8")
+            print(f"Wrote {out}")
+        else:
+            print(text)
+        return
     if args.cmd == "bench":
         return bench(args)
     if args.cmd == "where":
