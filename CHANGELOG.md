@@ -13,6 +13,8 @@
 - Relay: the PM sees the team's tools; a team that can't create files gets text chunks (code enforces
   it); questions get no output file; the PM writes the final answer from the results; a tool error is
   shown to the worker, and a chunk stops retrying when the same failure repeats or permission is missing
+- Relay text chunks: the worker is told its reply is the result; what its tools really returned is kept
+  as facts, and the PM writes the final answer from those facts (no invented dates or numbers)
 
 ## v0.3.1 (2026-10-23)
 

@@ -171,3 +171,20 @@ def test_a_permission_error_is_not_retried(fake, tmp_path):
     c1 = run.relay["chunks"][0]
     assert c1["tries"] == 2 and c1["status"] == "failed"  # same failure twice: stop retrying
     assert any(p.startswith("tool error:") for p in c1["problems"])
+
+
+def test_pm_answers_from_what_the_tools_really_returned(fake, tmp_path):
+    (tmp_path / "notes.txt").write_text("Launch moves to Friday the 14th.", encoding="utf-8")
+    plan = {"understanding": "Read a note.", "contract": "", "chunks": [
+        {"id": "c1", "title": "Read notes", "output": "", "goal": "read notes.txt", "depends_on": [], "must_contain": []}]}
+    fake.format_replies = {"chunks": plan, "complete": {"complete": True, "reason": "ok", "missing": ""}}
+    fake.script = [[("read_file", {"path": str(tmp_path / "notes.txt")})], "I read notes.txt.",  # a vague reply
+                   "done", "The launch is on Friday the 14th."]
+    cfg = config(route="relay", max_steps=4, permissions={"files": {"folders": [str(tmp_path)], "read": "allow"}})
+    run = RunManager().start(cfg, "When is the launch? Read notes.txt")
+    wait(run)
+    pm_prompt = fake.calls[-1]["messages"][-1]["content"]
+    assert "Friday the 14th" in pm_prompt and "What the tools returned" in pm_prompt
+    brief = [e["content"] for e in run.events if e.get("worker")][0]
+    assert "Output: YOUR REPLY" in brief
+    assert run.answer.startswith("The launch is on Friday the 14th.")

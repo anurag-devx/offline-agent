@@ -126,7 +126,7 @@ def clean_plan(plan, task):
         chunks.append({"id": cid, "title": str(c.get("title") or cid)[:80], "output": str(c.get("output") or "").strip(),
                        "goal": str(c.get("goal") or "").strip(), "must_contain": must,
                        "depends_on": [d for d in (c.get("depends_on") or []) if d in seen and d != cid],
-                       "status": "todo", "tries": 0, "problems": [], "note": "", "path": "", "fix": ""})
+                       "status": "todo", "tries": 0, "problems": [], "note": "", "path": "", "fix": "", "facts": ""})
     if not chunks:
         chunks = [{"id": "c1", "title": "Do the whole task", "output": "", "goal": task, "must_contain": [],
                    "depends_on": [], "status": "todo", "tries": 0, "problems": [], "note": "", "path": "", "fix": ""}]
@@ -294,19 +294,25 @@ class Relay:
             return
         chunk["note"] = (self.run.answer or "")[:1500]
         before = list(chunk["problems"])
+        results = [e for e in self.run.events[since:] if e["type"] == "tool_result"]
+        errors = sorted({str(e["result"])[:160] for e in results
+                         if str(e["result"]).startswith(("Error", "The user denied"))})
+        # facts from code: what the worker's tools really returned (the PM answers from these too)
+        chunk["facts"] = "\n".join(f"{e['name']}: {str(e['result'])[:600]}" for e in results
+                                   if not str(e["result"]).startswith(("Error", "The user denied")))[:2000]
         if chunk["output"]:
             chunk["path"] = self._find(chunk, since)
             chunk["problems"] = check_output(chunk, chunk["path"])
+            if chunk["problems"] and errors:
+                chunk["problems"] += [f"tool error: {x}" for x in errors[:3]]
         else:
             chunk["problems"] = [] if final == "completed" and chunk["note"].strip() else ["the worker gave no result"]
-        errors = sorted({str(e["result"])[:160] for e in self.run.events[since:]
-                         if e["type"] == "tool_result" and str(e["result"]).startswith(("Error", "The user denied"))})
-        if chunk["problems"] and errors:
-            chunk["problems"] += [f"tool error: {x}" for x in errors[:3]]
+            if any("no permission" in x for x in errors):  # e.g. tried to save a file it can't make
+                chunk["problems"].append("you used a tool you don't have; put the result in your reply instead")
+        fatal = chunk["output"] and any("no permission" in x for x in errors)
         if not chunk["problems"]:
             chunk["status"] = "done"
-        elif chunk["tries"] >= CHUNK_TRIES or (chunk["tries"] > 1 and chunk["problems"] == before) \
-                or any("no permission" in x for x in errors):
+        elif chunk["tries"] >= CHUNK_TRIES or (chunk["tries"] > 1 and chunk["problems"] == before) or fatal:
             chunk["status"] = "failed"  # out of tries, the same failure again, or not allowed: retrying won't help
         self._event(phase="build", chunk=chunk["id"], status=chunk["status"], problems=chunk["problems"],
                     content=f"{chunk['id']} " + ("passed" if chunk["status"] == "done" else
@@ -327,6 +333,9 @@ class Relay:
         lines.append(f"YOUR CHUNK {chunk['id']}: {chunk['title']}")
         if chunk["output"]:
             lines.append(f"Output file: {chunk['output']}")
+        else:
+            lines.append("Output: YOUR REPLY. Write the complete result in your reply (every fact, number, name and "
+                         "date it needs), not a description of what you did. Do not create files.")
         lines.append(f"Goal:\n{chunk['goal']}")
         if chunk["must_contain"]:
             lines.append("Must contain exactly: " + ", ".join(f'"{m}"' for m in chunk["must_contain"]))
@@ -385,10 +394,13 @@ class Relay:
         texts = [c for c in st["chunks"] if not c["output"] and c["status"] == "done" and c["note"].strip()]
         if not texts:
             return
-        results = "\n\n".join(f"[{c['title']}]\n{c['note']}" for c in texts)
+        results = "\n\n".join(f"[{c['title']}]\n{c['note']}"
+                                + (f"\nWhat the tools returned (facts):\n{c['facts']}" if c.get("facts") else "")
+                                for c in texts)
         files = [c["path"] or c["output"] for c in st["chunks"] if c["output"] and c["status"] == "done"]
         prompt = ("You are the PM. Your team finished the user's task. Write the final answer to the user from "
-                  "the team's results: complete and well organised, in plain words. Do not mention chunks, "
+                  "the team's results: complete and well organised, in plain words. Use only facts from the "
+                  "results and what the tools returned; never invent dates or numbers. Do not mention chunks, "
                   "workers or the PM." + (f" Files made: {', '.join(files)}." if files else ""))
         try:
             started = time.time()
