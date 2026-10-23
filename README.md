@@ -52,7 +52,7 @@ max_steps: 80
 | | |
 |---|---|
 | **Studio** | A calm local web app: **Home** (type a task, pick an agent, run), **Agents** (cards + an editor with access presets and a live "what it can do" panel), **Activity** (every run as a live conversation, with approvals, Relay progress, files, speed), **Library** (catalog, models, memory, workspace with website preview), **Tests**, light and dark |
-| **Permission policy** | 10 capabilities, each *Off / Allow / Ask first*: files (read, create, modify, move, delete), internet (read pages, search), email (read, organize), asking you questions. Plus scopes: folders, file types, max changes per run, sites, mail folders. Grant extra folders/sites during a run |
+| **Permission policy** | 12 capabilities, each *Off / Allow / Ask first*: files (read, create, modify, move, delete), internet (read pages, search), email (read, organize), memory (recall, remember), asking you questions. Plus scopes: folders, file types, max changes per run, sites, mail folders. Grant extra folders/sites during a run |
 | **Preview before running** | What the agent can/can't do, a workflow diagram, and a step-by-step plan for your task with nothing executed |
 | **AI-generated agents** | Describe an agent in plain English; your local model drafts the config |
 | **Run tracking** | Background runs, live status, approve once / approve all this run / deny, answer the agent's questions, stop runs |
@@ -189,16 +189,31 @@ bench:
 Rule of thumb: a model needs about its download size in RAM, plus room for the context window.
 Bigger models are more reliable, smaller ones faster.
 
-Measured with the [Test Bench](#test-bench) on a MacBook Air M2, 16 GB, macOS (Telegram style + Full Voice on):
+Measured with the [Test Bench](#test-bench) on a MacBook Air M2, 16 GB, macOS (Telegram style + Full Voice on).
 
-| Model | 4 quick agents* | Avg time | Website Builder | Verdict |
+**Quick agents and the first website test** (v0.3.0, 2026-10-22; one agent per task, before Relay):
+
+| Model | 4 quick agents* | Avg time | Website Builder (simple brief) | Verdict |
 |---|---|---|---|---|
 | **`gemma4:e4b`** (default) | ✅ 4/4 | **15s** | ✅ ~12 min, best page | Fastest on quick tasks, best quality |
 | `qwen3.5:9b` | ✅ 4/4 | 19.5s | ✅ ~7 min | Reliable all-rounder |
 | `gpt-oss:20b` | 3/4 | 48s | ✅ ~29.5 min, thinnest page | Too slow / memory-tight on 16 GB |
-| *your model here* | | | | [Share your result](https://github.com/anurag-devx/offline-agent/issues/new?template=tested_on.md) |
 
 \* General Assistant, File Helper, File Sorter, Math Helper.
+
+**Big job: the interactive bakery website** (v0.3.1, 2026-10-23, `gemma4:e4b`; cart, filters, form checks,
+dark mode, SVG images):
+
+| How it ran | Result | Time | Model calls | Browser checks (re-scored later) |
+|---|---|---|---|---|
+| One agent | ❌ ran out of its 40 steps | 2 h 10 min | 76 | 0/11 (the script crashed on load) |
+| Relay (PM + small agents) | ✅ all code checks, Inspector approved | 19 min | 21 | 9/11 (no form errors, no order confirmation) |
+
+Not measured yet: Relay's newer quality phases (feature chunks, style guide, browser test, visual
+review, lead model), patch fixes, and the new Studio. These rows will be updated after the next bench run.
+
+| *your model here* | [Share your result](https://github.com/anurag-devx/offline-agent/issues/new?template=tested_on.md) |
+|---|---|
 
 ## Quick start
 
@@ -216,8 +231,9 @@ offline-agent studio
 The Studio runs only on this computer and needs no internet. `offline-agent studio --port 9000`
 picks another port; `--classic` opens the older Streamlit Studio.
 
-Your agents, runs, memory and workspace are stored in `~/OfflineAgent`
-(`offline-agent where` shows it; set `OFFLINE_AGENT_HOME` to move it).
+Your agents, runs, memory and workspace are stored in `~/OfflineAgent` (`offline-agent where` shows it;
+set `OFFLINE_AGENT_HOME` to move it). In a git checkout they live in the project folder instead, and
+`agents/`, `runs/`, `workspace/` and the rest are git-ignored, so they never reach GitHub.
 
 **From source** (to change the code):
 
@@ -246,7 +262,9 @@ offline-agent catalog --write          # regenerate docs/CATALOG.md
 
 ```python
 from offline_agent.engine import Agent, load_agent
-agent = Agent(load_agent("agents/math_helper.yaml"))
+from offline_agent.engine.config import TEMPLATES_DIR   # your own agents: AGENTS_DIR
+
+agent = Agent(load_agent(TEMPLATES_DIR / "math_helper.yaml"))
 print(agent.ask("What is 18% of 1240?"))
 ```
 

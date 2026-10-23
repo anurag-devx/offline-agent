@@ -3,6 +3,8 @@ __pycache__/
 *.pyc
 .DS_Store
 # created while using the app (personal data)
+agents/*
+!agents/.gitkeep
 runs/
 logs/
 workspace/*
