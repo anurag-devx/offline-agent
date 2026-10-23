@@ -91,19 +91,46 @@ def parse(step):
     return verb, target, value
 
 
-def clean_checks(checks):
-    """Keep only well-formed checks: [{"name", "steps", "owner"?}]."""
+FIX_TAGS = {"submit": "[type=submit]", "checkbox": "[type=checkbox]", "radio": "[type=radio]"}
+
+
+def repair(step):
+    """A step whose selector names an element that doesn't exist in HTML ('#form submit') is repaired
+    when the meaning is clear ([type=submit]); returns (step, problem). problem "" = fine."""
+    from .joins import bad_tags
+    verb, target, value = parse(step)
+    bad = bad_tags(target) if target else []
+    if not bad:
+        return str(step), ""
+    fixed = target
+    for w in bad:
+        if w.lower() not in FIX_TAGS:
+            return str(step), f"`{target}`: <{w}> is not an HTML element"
+        fixed = re.sub(rf"(?<![\w.#-]){re.escape(w)}(?![\w-])", FIX_TAGS[w.lower()], fixed)
+    q = (lambda x: f'"{x}"' if " " in x else x)
+    return " ".join(x for x in (verb, q(fixed), value) if x), ""
+
+
+def clean_checks(checks, dropped=None):
+    """Keep only well-formed checks: [{"name", "steps", "owner"?}]. A check with a step that can never
+    pass (unknown verb, or a selector naming no real element) is dropped; why goes into `dropped`."""
     out = []
     for c in list(checks or [])[:MAX_CHECKS]:
         if not isinstance(c, dict):
             continue
-        steps = []
+        steps, bad = [], ""
         for s in list(c.get("steps") or [])[:MAX_STEPS]:
             try:
-                parse(s)
-                steps.append(str(s))
+                fixed, bad = repair(s)
+                if bad:
+                    break
+                steps.append(fixed)
             except ValueError:
                 continue
+        if bad:
+            if dropped is not None:
+                dropped.append(f"{c.get('name') or 'check'}: {bad}")
+            continue
         if steps:
             out.append({"name": str(c.get("name") or steps[0])[:80], "steps": steps,
                         "owner": str(c.get("owner") or c.get("chunk") or "")})
@@ -134,9 +161,48 @@ def _text(page, sel):
     return loc.first.inner_text(timeout=1000) if loc.count() else None
 
 
+def why_not(page, sel):
+    """Why a click/fill on sel can't happen: not on the page, hidden, or covered by another element."""
+    try:
+        info = page.evaluate("""(sel) => {
+            const all = [...document.querySelectorAll(sel)];
+            if (!all.length) return {n: 0};
+            const e = all[0], r = e.getBoundingClientRect(), s = getComputedStyle(e);
+            if (!(r.width > 0 && r.height > 0) || s.display === 'none' || s.visibility === 'hidden')
+                return {n: all.length, hidden: true};
+            const top = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+            if (top && top !== e && !e.contains(top)) {
+                const name = top.tagName.toLowerCase() + (top.id ? '#' + top.id : '') +
+                    (typeof top.className === 'string' && top.className ? '.' + top.className.trim().split(/\\s+/).join('.') : '');
+                return {n: all.length, covered: name};
+            }
+            return {n: all.length};
+        }""", sel)
+    except Exception:
+        return ""
+    if not info.get("n"):
+        return f"no element matches `{sel}`"
+    if info.get("hidden"):
+        return f"`{sel}` is on the page but hidden (display:none or zero size) at this screen size"
+    if info.get("covered"):
+        return f"`{sel}` is covered by <{info['covered']}> (they overlap), so it can't be clicked"
+    return ""
+
+
 def _step(page, step, timeout_ms):
     """Run one step. Returns "" if fine, else what went wrong."""
     verb, target, value = parse(step)
+    if verb in ("click", "fill", "select"):
+        if page.locator(target).count() == 0:
+            _poll(page, lambda: page.locator(target).count() > 0, timeout_ms)
+        try:
+            return _act(page, verb, target, value, timeout_ms)
+        except Exception as e:
+            return why_not(page, target) or str(e).splitlines()[0][:200]
+    return _check(page, verb, target, value, timeout_ms)
+
+
+def _act(page, verb, target, value, timeout_ms):
     if verb == "click":
         page.locator(target).first.click(timeout=timeout_ms)
         page.wait_for_timeout(150)
@@ -144,7 +210,11 @@ def _step(page, step, timeout_ms):
         page.locator(target).first.fill(value, timeout=timeout_ms)
     elif verb == "select":
         page.locator(target).first.select_option(value, timeout=timeout_ms)
-    elif verb == "reload":
+    return ""
+
+
+def _check(page, verb, target, value, timeout_ms):
+    if verb == "reload":
         page.reload()
         page.wait_for_timeout(300)
     elif verb == "phone":

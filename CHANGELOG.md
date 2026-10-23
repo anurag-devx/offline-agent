@@ -27,8 +27,24 @@
     scrolling on a phone. Failures go back to the owning chunk as patch fixes (3 rounds)
   - **👀 Visual review**: the lead looks at desktop + phone screenshots against the style guide and sends
     concrete CSS/HTML fixes to the chunk that owns the file
-  - **Lead model** per agent (`lead_model`): plans, designs, looks and writes the answer; workers use the
-    agent's model. Website Builder: `gemma4:12b-it-q4_K_M`, falls back if not installed
+  - **Lead model** per agent (`lead_model`, optional): plans, designs, looks and writes the answer; workers
+    use the agent's model. Off by default: on 16 GB a second model next to the worker swaps to disk
+    (a bench run spent 71 of 80 minutes in two 12b calls)
+  - **🔗 Joins** (`engine/joins.py`): code checks where the files meet. It finds names the script looks
+    for that no element has, CSS and HTML that picked different class names, buttons with no style,
+    a CSS block that is never closed, the same selector written several times, and duplicate ids,
+    each with file and line. A script chunk is checked as soon as the HTML is done; integration gets
+    code's list, finishes failed chunks, and code checks again (2 passes)
+  - Workers see a **page map** (the ids, classes and data attributes the HTML really has) and the
+    classes the CSS styles; the PM's contract lists every id, class, data attribute and function
+  - A fix may change the other files it touches (where most bugs sit); code still checks that no
+    other chunk's part was removed
+  - The PM's browser checks are checked first: a selector naming an element HTML doesn't have is
+    repaired (`#form submit` → `#form [type=submit]`) or the check is dropped; ids the checks use are
+    given to the HTML chunk, so nothing is left unbuilt
+  - A failed click says why: no element matches, hidden at this size, or covered by another element
+  - `must_contain` understands selectors (`#menu-toggle` matches `id="menu-toggle"`); SVG drawings need
+    at least 6 shapes; a text chunk that changed files counts as done
 - Bench: `browser:` checks; the Website Builder test now clicks through the site (11 checks)
 - **Pinpoint + Patch**: the Inspector returns findings (file, line, problem, fix); code checks them and
   attaches the real lines; agents fix just that spot with new tools `read_lines` (line numbers by code),

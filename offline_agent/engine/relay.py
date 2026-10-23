@@ -9,7 +9,9 @@ do one chunk each (one after another), and the PM pulls everything back together
     3. Build      one fresh worker per chunk. It sees only the brief, the contract, the style guide,
                   its chunk and the files it depends on. Code checks the output (and that it didn't
                   break another chunk's part of a shared file); a failed chunk is retried with the reason
-    4. Integrate  a worker reads all outputs and fixes anything that doesn't fit together
+    4. Integrate  code checks the joins between the files (engine/joins.py: names the script looks
+                  for, class names CSS and HTML disagree on, unclosed CSS, duplicate rules); a worker
+                  that sees every file fixes them and finishes failed chunks; code checks again
     5. Test       code opens the page in a real browser and runs the checks; JavaScript errors and
                   failed checks go back to the chunk that owns them, as patch fixes
     6. Look       the lead looks at screenshots (desktop + phone) against the style guide; its
@@ -24,10 +26,11 @@ Everything is saved in the run (run.relay), so a long job can stop and resume wh
 """
 import copy
 import json
+import re
 import time
 from pathlib import Path
 
-from . import browser, llm
+from . import browser, joins, llm
 from .config import VerifyConfig
 from .findings import PATCH_RULE, as_text, locate
 from .speed import timing
@@ -38,6 +41,8 @@ CHUNK_TRIES = 3      # tries per chunk per round
 REVIEW_ROUNDS = 2    # how many times the PM may send chunks back after the final review
 TEST_ROUNDS = 3      # browser test runs (each failed run sends chunks back)
 LOOK_ROUNDS = 1      # visual reviews
+JOIN_ROUNDS = 2      # integration passes while code still finds mismatches between files
+MIN_SHAPES = 6       # an SVG drawing needs at least this many shapes
 WORKER_STEPS = 15
 LEAD_CTX = 16384     # the lead's prompts are short; a smaller context leaves memory for a bigger model
 VISUAL = (".html", ".htm", ".css", ".svg")
@@ -98,11 +103,16 @@ Rules:
   addresses from the task. A worker sees only its own goal, the contract and the style guide.
 - `must_contain`: 2-10 short exact strings this chunk adds to the output (ids, names, function
   names, key texts).
-- `contract`: the shared agreement every chunk must follow: file names and paths, ids, class names,
-  function and variable names, data (e.g. the full list of items with prices). Be exact: this is
-  how separate workers' pieces fit together.
+- `contract`: the shared agreement every chunk must follow. Be exact and complete: this is the ONLY
+  way separate workers' pieces fit together. List:
+  FILES: every path. IDS: every id and its element. CLASSES: every class name and what it is for
+  (e.g. .btn and .btn-primary for ALL buttons, .card for menu items, .filter-btn for filter buttons,
+  .active for the selected one, .hidden to hide things). DATA ATTRIBUTES: e.g. data-category on cards
+  and on filter buttons. JS: function names and the data (the full list of items with every field
+  and price). HTML, CSS and JS chunks must use these exact names; never invent new ones.
 - `understanding`: one sentence restating the job.
-- Questions and analysis that need no file: `output` "" (the worker's reply is the result).
+- Questions and analysis that need no file: `output` "" (the worker's reply is the result). Polish,
+  checks and fixes of files are NOT text chunks: give them the file as `output`.
 {files_rule}{web_rules}
 The team's role:
 {role}
@@ -118,7 +128,9 @@ WEB_RULES = """
   SEL is CSS (#id, .class, [attr]) or text=Label; put it in double quotes if it has spaces. Use the
   ids and classes from the contract. Example:
   {{"name": "add to cart", "owner": "c5", "steps": ["click \\"text=Add to cart\\"", "expect_text #cart ₹"]}}
-  Not a web page: page "" and checks []."""
+  Not a web page: page "" and checks [].
+- A web page's first screen needs a headline and a short line under it, not only a picture. SVG
+  images are real drawings: at least 8 shapes each (layers, details, highlights)."""
 
 PM_DESIGN = """You are the design lead. Write a concrete STYLE GUIDE for this job that several developers
 will follow exactly. Decide; don't offer options. Short lines with exact values, no code:
@@ -154,6 +166,7 @@ You are one worker in a team. A PM split a bigger job into chunks; you do ONLY y
 Follow the CONTRACT and the STYLE GUIDE exactly so your piece fits the others. Write a NEW output
 completely with write_file. If the file already exists, change only what's needed with edit_file /
 insert_lines (read_lines shows the exact text); never remove parts other workers made. No placeholders.
+Use only ids and classes from the contract or the PAGE MAP; if you need a new one, add it on both sides.
 When your chunk is done, reply with one short line saying what you made."""
 
 
@@ -199,13 +212,37 @@ def clean_plan(plan, task):
                              [d for d in (c.get("depends_on") or []) if d in seen and d != cid]))
     if not chunks:
         chunks = [_chunk("c1", "Do the whole task", goal=task)]
-    checks = browser.clean_checks(plan.get("checks"))
+    dropped = []
+    checks = browser.clean_checks(plan.get("checks"), dropped)
     for c in checks:  # a check belongs to a chunk; unknown owner -> the last chunk that makes a script or page
         if c["owner"] not in seen:
             c["owner"] = next((x["id"] for x in reversed(chunks) if x["output"].endswith(".js")), None) or \
                 next((x["id"] for x in reversed(chunks) if x["output"].endswith(VISUAL)), chunks[-1]["id"])
-    return {"understanding": str(plan.get("understanding") or "")[:300], "contract": str(plan.get("contract") or ""),
-            "chunks": chunks, "page": str(plan.get("page") or "").strip(), "checks": checks}
+    contract = str(plan.get("contract") or "")
+    _cover(chunks, checks, contract)
+    return {"understanding": str(plan.get("understanding") or "")[:300], "contract": contract,
+            "chunks": chunks, "page": str(plan.get("page") or "").strip(), "checks": checks, "dropped_checks": dropped}
+
+
+def _cover(chunks, checks, contract):
+    """Every id the checks click or the contract names must be some chunk's job: ids nobody is asked to
+    make go to the first HTML chunk (that is how a page ended up with no #menu-toggle)."""
+    html = next((c for c in chunks if c["output"].lower().endswith((".html", ".htm"))), None)
+    if not html:
+        return
+    wanted = []
+    for c in checks:
+        for s in c["steps"]:
+            wanted += re.findall(r"#([A-Za-z][\w-]*)", s)
+    wanted += re.findall(r"(?<![\w&])#([A-Za-z][\w-]*[A-Za-z0-9])", contract)
+    text = " ".join(c["goal"] + " " + " ".join(c["must_contain"]) for c in chunks).lower()
+    missing = []
+    for w in dict.fromkeys(wanted):
+        if w.lower() not in text and not re.fullmatch(r"[0-9a-fA-F]{3,8}", w):  # not a colour
+            missing.append(w)
+    if missing:
+        html["goal"] += "\nAlso include these elements (other parts use them): " + ", ".join("#" + m for m in missing)
+        html["must_contain"] = (html["must_contain"] + ["#" + m for m in missing])[:16]
 
 
 def check_output(chunk, path):
@@ -216,13 +253,32 @@ def check_output(chunk, path):
     low, problems = body.lower(), []
     if len(body.strip()) < 20:
         problems.append("the file is (almost) empty")
-    missing = [m for m in chunk["must_contain"] if m.lower() not in low]
+    missing = [m for m in chunk["must_contain"] if not _has(low, m)]
     if missing:
         problems.append("missing: " + ", ".join(missing))
     holders = [x for x in ("lorem ipsum", "your text here") if x in low] + (["TODO"] if "TODO" in body else [])
     if holders:
         problems.append("placeholder text: " + ", ".join(holders))
+    if path.lower().endswith(".svg"):
+        shapes = len(re.findall(r"<(path|rect|circle|ellipse|polygon|polyline|line)\b", low))
+        if shapes < MIN_SHAPES:
+            problems.append(f"the drawing is too simple ({shapes} shapes): draw it with at least {MIN_SHAPES + 2} "
+                            "shapes (body, layers, details, highlights)")
     return problems
+
+
+def _has(low, m):
+    """must_contain match. "#menu-toggle" is also found as id="menu-toggle", ".btn" as class="... btn ...","""
+    m = m.lower()
+    if m in low:
+        return True
+    name = m[1:]
+    if m.startswith("#") and re.fullmatch(r"[\w-]+", name):
+        return bool(re.search(r"""id\s*=\s*["']%s["']|getelementbyid\(\s*["']%s["']""" % (re.escape(name), re.escape(name)), low))
+    if m.startswith(".") and re.fullmatch(r"[\w-]+", name):
+        return bool(re.search(r"""class(name)?\s*=\s*["'`][^"'`]*(?<![\w-])%s(?![\w-])|classlist\.\w+\(\s*["']%s["']"""
+                              % (re.escape(name), re.escape(name)), low))
+    return False
 
 
 def markdown(job_id, state):
@@ -248,6 +304,10 @@ def markdown(job_id, state):
         out += ["", "**Browser checks:** " + ", ".join(f"{c['name']} ({c['owner']})" for c in state["checks"])]
     if state.get("integrate"):
         out += ["", f"**Integration:** {state['integrate']}"]
+    if state.get("joins"):
+        out += ["", "**Code still sees mismatches between files:**"] + [f"- {x}" for x in state["joins"][:8]]
+    if state.get("dropped_checks"):
+        out += ["", "**Browser checks dropped (could never pass):** " + "; ".join(state["dropped_checks"])]
     if state.get("test"):
         t = state["test"]
         out += ["", f"**Browser test (round {state.get('test_round', 0)}):** "
@@ -334,6 +394,10 @@ class Relay:
                     return str(cand)
         return ""
 
+    def _web_files(self):
+        """{path: text} of the web files made so far."""
+        return joins.read(sorted({c["path"] for c in self.state["chunks"] if c.get("path")}))
+
     def _owner(self, file_name, prefer=None):
         """The chunk that owns a file: the preferred chunk if it makes that file, else the first one that does."""
         name = Path(str(file_name)).name.lower()
@@ -395,6 +459,9 @@ class Relay:
                 self._event(phase="plan", content=f"PM plan failed ({e}); {'retrying' if not attempt else 'one chunk'}.")
         plan = plan or clean_plan({}, task)
         self.state.update(plan)
+        if plan.get("dropped_checks"):
+            self._event(phase="plan", content="Dropped browser checks that could never pass: "
+                                              + "; ".join(plan["dropped_checks"][:4]))
         visual = any(c["output"].lower().endswith(VISUAL) for c in plan["chunks"])
         self.state["phase"] = "design" if visual else "build"
         self._event(phase="plan", content=f"PM split the job into {len(plan['chunks'])} chunks"
@@ -422,7 +489,13 @@ class Relay:
                     return
                 self.build_chunk(chunk)
         multi = sum(1 for c in self.state["chunks"] if c["output"]) > 1
-        self.state["phase"] = "integrate" if multi and not self.state.get("integrated") else "test"
+        st = self.state
+        if multi and not st.get("integrated"):
+            st["phase"] = "integrate"
+        elif multi and st.get("join_round", 0) < JOIN_ROUNDS + 2 and joins.check(self._web_files()):
+            st["phase"] = "integrate"  # a fix round broke a join: one more integration pass
+        else:
+            st["phase"] = "test"
         self._save()
 
     def build_chunk(self, chunk):
@@ -444,15 +517,21 @@ class Relay:
         if chunk["output"]:
             chunk["path"] = self._find(chunk, since)
             chunk["problems"] = check_output(chunk, chunk["path"])
-            for other in self.state["chunks"]:  # a shared file: did this worker break another chunk's part?
-                if other is not chunk and other["status"] == "done" and other["output"] == chunk["output"]:
-                    lost = [p for p in check_output(other, chunk["path"]) if p.startswith("missing")]
+            touched = {str(e.get("dst")) for e in self.run.events[since:] if e["type"] == "file_op" and e.get("dst")}
+            for other in self.state["chunks"]:  # did this worker break another chunk's part of a file it changed?
+                if other is not chunk and other["status"] == "done" and other.get("path") and \
+                        (other["output"] == chunk["output"] or other["path"] in touched):
+                    lost = [p for p in check_output(other, other["path"]) if p.startswith("missing")]
                     if lost:
                         chunk["problems"].append(f"you removed {other['id']}'s part ({lost[0]}); put it back")
+            if not chunk["problems"] and chunk["path"]:
+                chunk["problems"] += self._join_problems(chunk)
             if chunk["problems"] and errors:
                 chunk["problems"] += [f"tool error: {x}" for x in errors[:3]]
         else:
-            chunk["problems"] = [] if final == "completed" and chunk["note"].strip() else ["the worker gave no result"]
+            changed = any(e["type"] == "file_op" for e in self.run.events[since:])
+            chunk["problems"] = [] if final == "completed" and (chunk["note"].strip() or changed) \
+                else ["the worker gave no result"]
             if any("no permission" in x for x in errors):  # e.g. tried to save a file it can't make
                 chunk["problems"].append("you used a tool you don't have; put the result in your reply instead")
         fatal = chunk["output"] and any("no permission" in x for x in errors)
@@ -464,6 +543,20 @@ class Relay:
                     content=f"{chunk['id']} " + ("passed" if chunk["status"] == "done" else
                                                  "failed: " + "; ".join(chunk["problems"])))
         self._save()
+
+    def _join_problems(self, chunk):
+        """Code's check of where this chunk's file meets the others (only what this chunk can fix now)."""
+        path = chunk["path"]
+        if not path.lower().endswith(joins.WEB):
+            return []
+        files = self._web_files()
+        files[path] = Path(path).read_text(encoding="utf-8", errors="replace")
+        found = joins.file_checks(path, files[path])
+        html_ready = all(c["status"] == "done" for c in self.state["chunks"]
+                         if c["output"].lower().endswith((".html", ".htm")) and c is not chunk)
+        if path.lower().endswith(".js") and html_ready and any(p.lower().endswith((".html", ".htm")) for p in files):
+            found += [f for f in joins.check(files) if f["file"] == path and "looks for" in f["problem"]]
+        return [f"line {f['line']}: {f['problem']} Fix: {f['fix']}" for f in found[:4]]
 
     def worker_message(self, chunk):
         st = self.state
@@ -479,6 +572,14 @@ class Relay:
         if others:
             lines.append("ALREADY DONE BY OTHERS (exists now):\n" + "\n".join(others))
         lines.append(f"YOUR CHUNK {chunk['id']}: {chunk['title']}")
+        web = chunk["output"].lower().endswith(joins.WEB) or (chunk.get("fix") and st.get("page"))
+        if web:
+            files = self._web_files()
+            pmap, cmap = joins.page_map(files), joins.css_map(files)
+            if pmap and not chunk["output"].lower().endswith((".html", ".htm")):
+                lines.append("PAGE MAP (what the HTML really has; use exactly these names):\n" + pmap)
+            if cmap and not chunk["output"].lower().endswith(".css"):
+                lines.append("CLASSES THE CSS STYLES (use these on your elements): " + cmap)
         if chunk["output"]:
             sharing = [c for c in st["chunks"] if c is not chunk and c["output"] == chunk["output"]
                        and c["status"] == "done"]
@@ -501,7 +602,11 @@ class Relay:
             lines.append("Read first (you depend on them): " + ", ".join(
                 (d["path"] or d["output"]) if d["output"] else f"{d['id']} result: {d['note'][:200]}" for d in deps))
         if chunk.get("fix"):
-            lines.append(f"PROBLEMS FOUND IN YOUR PART. FIX THEM:\n{chunk['fix']}\n\n{PATCH_RULE}")
+            related = sorted({c["path"] for c in st["chunks"] if c.get("path") and c["path"] != chunk.get("path")
+                              and c["path"].lower().endswith(joins.WEB)})
+            lines.append(f"PROBLEMS FOUND IN YOUR PART. FIX THEM:\n{chunk['fix']}\n\n{PATCH_RULE}"
+                         + ("\nA problem can sit where your file meets another one. You may also change these "
+                            "files, only as much as the fix needs: " + ", ".join(related) if related else ""))
         if chunk["problems"] and chunk["tries"] > 1:
             missing_file = any("was not created" in x for x in chunk["problems"])
             lines.append("YOUR LAST TRY FAILED THE CHECK: " + "; ".join(chunk["problems"]) + ". "
@@ -510,20 +615,48 @@ class Relay:
         return "\n\n".join(lines)
 
     def integrate(self):
+        """Code finds where the files don't fit together; one worker who sees every file fixes it (and
+        finishes chunks that failed); code checks again, up to JOIN_ROUNDS passes."""
         st = self.state
-        files = sorted({c["path"] or c["output"] for c in st["chunks"] if c["output"] and c["status"] == "done"})
-        self._event(phase="integrate", content=f"PM: checking that {len(files)} files fit together.")
-        msg = (f"WHOLE JOB:\n{st['task'][:4000]}\n\nCONTRACT:\n{st.get('contract') or '(none)'}\n\n"
-               "YOUR CHUNK: integration. Separate workers made these files:\n" + "\n".join(f"- {f}" for f in files)
-               + "\n\nRead each file. Check they fit together and follow the contract: links and file names "
-               "between files, every id/class/function one file uses exists in the other, the same data and "
-               "names everywhere, nothing from the job left out. Fix any mismatch with edit_file or "
-               "insert_lines (change only what is needed). Reply with one line: what you fixed, or 'all fits'.")
-        final = self.m._worker_turn(self.run, self._worker_cfg(), msg)
+        st["join_round"] = st.get("join_round", 0) + 1
+        files = sorted({c["path"] or c["output"] for c in st["chunks"] if c["output"] and (c["path"] or c["status"] == "done")})
+        found = joins.check(self._web_files())
+        failed = [c for c in st["chunks"] if c["status"] == "failed" and c["output"]]
+        self._event(phase="integrate", content=f"PM: checking that {len(files)} files fit together"
+                    + (f" · code found {len(found)} mismatch{'es' if len(found) != 1 else ''}" if found else "")
+                    + (f" · finishing {', '.join(c['id'] for c in failed)}" if failed else ""),
+                    problems=[f["problem"] for f in found])
+        parts = [f"WHOLE JOB:\n{st['task'][:4000]}", f"CONTRACT:\n{st.get('contract') or '(none)'}",
+                 "YOUR CHUNK: integration. Separate workers made these files:\n" + "\n".join(f"- {f}" for f in files)]
+        if found:
+            located = locate(found, self.m.worker_roots(self.run.id), self._known())
+            parts.append("CODE CHECKED THE FILES AND FOUND THESE MISMATCHES. Fix every one:\n" + as_text(located)
+                         + f"\n\n{PATCH_RULE}")
+        for c in failed:
+            parts.append(f"UNFINISHED PART {c['id']} {c['title']} ({c['path'] or c['output']}): {c['goal'][:1200]}\n"
+                         f"Code saw: {'; '.join(c['problems'])}. Finish it.")
+        parts.append("Read each file. Check they fit together and follow the contract: links and file names between "
+                     "files, every id/class/function one file uses exists in the other, the same data and names "
+                     "everywhere, nothing from the job left out. Fix mismatches with edit_file or insert_lines (change "
+                     "only what is needed; edit existing CSS rules instead of adding copies). Reply with one line: "
+                     "what you fixed, or 'all fits'.")
+        final = self.m._worker_turn(self.run, self._worker_cfg(), "\n\n".join(parts))
         if final == "stopped":
+            st["join_round"] -= 1
             return
+        for c in failed:  # code re-checks what failed: finished now?
+            c["path"] = c["path"] or self._find(c, 0)
+            c["problems"] = check_output(c, c["path"])
+            if not c["problems"]:
+                c["status"] = "done"
+        left = joins.check(self._web_files())
+        st["joins"] = [f"{Path(f['file']).name}:{f['line']} {f['problem']}" for f in left]
         st["integrate"], st["integrated"] = (self.run.answer or "")[:300], True
-        st["phase"] = "test"
+        self._event(phase="integrate", status="done" if not left else "failed", problems=st["joins"],
+                    content="Code: the files fit together." if not left else
+                    f"Code: {len(left)} mismatch{'es' if len(left) != 1 else ''} left"
+                    + (", one more pass." if st["join_round"] < JOIN_ROUNDS else "."))
+        st["phase"] = "integrate" if left and st["join_round"] < JOIN_ROUNDS else "test"
         self._save()
 
     def test(self):
@@ -721,6 +854,8 @@ class Relay:
                                                      (f": {c['note']}" if c["note"] else "")))
         if st.get("integrate"):
             lines += ["", f"Fitting it together: {st['integrate']}"]
+        if st.get("joins"):
+            lines += ["Files that still don't fit together: " + "; ".join(st["joins"][:4])]
         if st.get("test"):
             t = st["test"]
             lines += ["", f"Browser test: {t['passed']}/{t['total']} checks passed"

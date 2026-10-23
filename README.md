@@ -151,9 +151,13 @@ pip install playwright && python -m playwright install chromium
 offline-agent bench --agents "Website Builder" --route main,relay --timeout 180
 ```
 
-The lead model is set per agent (Studio → How it works). Website Builder uses `gemma4:12b-it-q4_K_M`
-(`ollama pull gemma4:12b-it-q4_K_M`, 8 GB) and falls back to the agent's model if it isn't installed;
-the visual review needs a lead model that can read images.
+A lead model is optional and set per agent (Studio → How it works): a bigger model, such as
+`gemma4:12b-it-q4_K_M`, then plans, writes the style guide and does the visual review. It's off by default,
+because on 16 GB two models don't fit together and the lead swaps to disk; with one model, that model does
+everything. The visual review needs a model that can read images.
+
+Between the steps, code checks how the files fit together (`engine/joins.py`): names the script looks for
+that the page doesn't have, CSS and HTML that use different class names, unclosed CSS, duplicate rules.
 
 ## Test Bench
 

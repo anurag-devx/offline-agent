@@ -49,4 +49,4 @@ max_steps: 40
 temperature: 0.3
 max_reply_tokens: 8192
 context_length: 32768
-lead_model: gemma4:12b-it-q4_K_M
+lead_model: ""   # optional bigger model for plan/style guide/visual review, e.g. gemma4:12b-it-q4_K_M (needs ~24 GB RAM next to the worker model)
