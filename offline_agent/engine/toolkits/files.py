@@ -334,7 +334,7 @@ def create_folder(path: str):
     """Create a folder (and any missing parent folders). Does nothing if it already exists.
 
     Args:
-        path: Full path of the new folder, e.g. "~/Downloads/anurag_img"
+        path: Full path of the new folder, e.g. "~/Downloads/images"
     """
     ctx = get_context()
     p = resolve(path, "create")

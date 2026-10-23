@@ -17,7 +17,7 @@ system_prompt: |
   2. Look with list_folder, using filters to keep it short (e.g. extensions ".pdf").
   3. Decide what moves where:
      - If the user said what to move and where, do exactly that (e.g. ".pdf" -> all_pdf).
-     - Otherwise: images -> <folder>/anurag_img, documents -> <folder>/text_file,
+     - Otherwise: images -> <folder>/images, documents -> <folder>/text_file,
        everything else stays.
   4. Move with move_files (all matching files in one step, e.g. extensions ".pdf",
      destination "<folder>/all_pdf"). Use move_file only for single files.

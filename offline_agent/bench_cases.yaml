@@ -118,7 +118,7 @@ cases:
             - {name: dark mode, steps: ['click #theme-toggle', 'expect_class body dark']}
             - {name: open or closed badge, steps: ['expect_text #open-status "open now|closed"']}
             - {name: form shows an error, steps: ['click "#order-form [type=submit], #order-form button"', 'expect_text #order-form "required|valid|enter|please|10 digits|must"']}
-            - {name: order is confirmed, steps: ['click "text=Add to cart"', 'fill #name Anurag', 'fill #phone 9876543210', 'fill #pickup 10:30', 'click "#order-form [type=submit], #order-form button"', 'expect_visible #order-confirmation']}
+            - {name: order is confirmed, steps: ['click "text=Add to cart"', 'fill #name Asha', 'fill #phone 9876543210', 'fill #pickup 10:30', 'click "#order-form [type=submit], #order-form button"', 'expect_visible #order-confirmation']}
             - {name: phone menu opens, steps: [phone, 'click #menu-toggle', 'expect_visible "header nav a"']}
 
   - agent: News Collector

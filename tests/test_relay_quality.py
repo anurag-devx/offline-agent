@@ -176,7 +176,7 @@ def test_real_browser_runs_steps_and_finds_errors(tmp_path):
 
 
 def test_step_language():
-    assert browser.parse('fill "#order-form input" Anurag Thakur') == ("fill", "#order-form input", "Anurag Thakur")
+    assert browser.parse('fill "#order-form input" Asha Rao') == ("fill", "#order-form input", "Asha Rao")
     assert browser.parse("reload") == ("reload", "", "")
     for bad in ("fly away", "click", "expect_count .card many"):
         with pytest.raises(ValueError):

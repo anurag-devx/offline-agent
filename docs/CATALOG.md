@@ -364,7 +364,7 @@ Create a folder (and any missing parent folders). Does nothing if it already exi
 
 | Input | Type | Required | About |
 |---|---|---|---|
-| `path` | string | yes | Full path of the new folder, e.g. "~/Downloads/anurag_img" |
+| `path` | string | yes | Full path of the new folder, e.g. "~/Downloads/images" |
 
 **Safety:** Only inside the agent's folders. Counts toward the change limit.
 

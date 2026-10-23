@@ -16,3 +16,11 @@ schedules/
 build/
 dist/
 bench/
+# never commit secrets or private notes
+.env
+*.env
+*.db
+*.sqlite
+credentials*.json
+.offline-agent/
+docs/private/
