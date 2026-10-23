@@ -717,7 +717,7 @@ class Relay:
         lines.append("What was made:")
         for c in st["chunks"]:
             mark = "✓" if c["status"] == "done" else ("✗" if c["status"] == "failed" else "…")
-            lines.append(f"- {mark} {c['title']}" + (f" → {c['path'] or c['output']}" if c["output"] else
+            lines.append(f"- {mark} {c['title']}" + (f" → `{c['output']}`" if c["output"] else
                                                      (f": {c['note']}" if c["note"] else "")))
         if st.get("integrate"):
             lines += ["", f"Fitting it together: {st['integrate']}"]

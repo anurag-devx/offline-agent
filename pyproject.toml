@@ -33,7 +33,7 @@ Issues = "https://github.com/anurag-devx/offline-agent/issues"
 include = ["offline_agent*"]
 
 [tool.setuptools.package-data]
-offline_agent = ["templates/*.yaml", "bench_cases.yaml"]
+offline_agent = ["templates/*.yaml", "bench_cases.yaml", "web/static/*.*", "web/static/js/*.js"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

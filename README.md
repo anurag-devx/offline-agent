@@ -51,7 +51,7 @@ max_steps: 80
 
 | | |
 |---|---|
-| **Studio** | Design → Preview → Validate → Run → Deploy, all in the browser |
+| **Studio** | A calm local web app: **Home** (type a task, pick an agent, run), **Agents** (cards + an editor with access presets and a live "what it can do" panel), **Activity** (every run as a live conversation, with approvals, Relay progress, files, speed), **Library** (catalog, models, memory, workspace with website preview), **Tests**, light and dark |
 | **Permission policy** | 10 capabilities, each *Off / Allow / Ask first*: files (read, create, modify, move, delete), internet (read pages, search), email (read, organize), asking you questions. Plus scopes: folders, file types, max changes per run, sites, mail folders. Grant extra folders/sites during a run |
 | **Preview before running** | What the agent can/can't do, a workflow diagram, and a step-by-step plan for your task with nothing executed |
 | **AI-generated agents** | Describe an agent in plain English; your local model drafts the config |
@@ -209,9 +209,12 @@ pip install git+https://github.com/anurag-devx/offline-agent.git
 # 2. Get a model with tool calling
 ollama pull gemma4:e4b
 
-# 3. Open the Studio
+# 3. Open the Studio (opens http://127.0.0.1:8765 in your browser)
 offline-agent studio
 ```
+
+The Studio runs only on this computer and needs no internet. `offline-agent studio --port 9000`
+picks another port; `--classic` opens the older Streamlit Studio.
 
 Your agents, runs, memory and workspace are stored in `~/OfflineAgent`
 (`offline-agent where` shows it; set `OFFLINE_AGENT_HOME` to move it).
@@ -288,7 +291,7 @@ a template is a YAML file. Tests run without Ollama: `python -m pytest -q`.
 
 ```
 offline_agent/
-  engine/            no UI code; everything works without Streamlit
+  engine/            no UI code; everything works without a UI
     llm.py           the only file that talks to Ollama
     agent.py         the agent loop (approvals, job notes, compaction)
     rules.py         rule mode for files and email: model writes a rule, code executes it
@@ -311,7 +314,8 @@ offline_agent/
     validate.py      checks + dry run
     paths.py         where data lives + always-blocked locations
     models.py        list / pull / delete / import models
-  ui/                Streamlit pages
+  web/               the Studio: server.py (local JSON API + live streams) and static/ (the app: HTML, CSS, JS)
+  ui/                the classic Streamlit Studio (offline-agent studio --classic)
   templates/         starter agents (shipped with the package)
   app.py             Studio entry point
   cli.py             the offline-agent command

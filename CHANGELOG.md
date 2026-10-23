@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+- **New Studio**: a fast, minimal local web app replaces the Streamlit pages (still available with
+  `offline-agent studio --classic`). Built on Python's own HTTP server and plain JavaScript: no new
+  dependencies, nothing loaded from the internet.
+  - **Home**: one box; type a task, pick an agent, Enter to run; recent runs below
+  - **Agents**: cards with what each can touch; editor with access presets (Answers only, Workspace
+    files, Organize a folder, Web research, Email, Custom), a compact permission table, Advanced closed
+    by default, and a live panel of what it can do, checks and tools; Test, Plan, Run, Save, schedules
+  - **Activity**: each run as a live conversation (streamed as it happens); tool steps fold into one line,
+    approvals and questions are answered inline, Relay shows its phases and one line per chunk; Files,
+    Speed and notes tabs; Stop, Resume, follow-ups, undo
+  - **Library**: catalog, models (download with progress, remove, import .gguf), memory, workspace with
+    a sandboxed website preview; **Tests**; **Settings**; light and dark
+  - Safe by design: listens only on 127.0.0.1, accepts changes only from its own page (a secret that's
+    new every start), refuses other Host names, previews workspace pages in a sandbox
 - **Relay quality**:
   - **Feature chunks**: big files are split by feature (script.js → data, cart, filters, form checks…);
     workers sharing a file add their part, and code checks nobody removed another chunk's part

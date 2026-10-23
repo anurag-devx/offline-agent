@@ -141,13 +141,16 @@ def headless_scheduler():
         print("\nStopped.")
 
 
-def studio(extra=()):
-    """Start the Streamlit Studio (same as: streamlit run offline_agent/app.py)."""
-    import subprocess
-    import sys
-    from pathlib import Path
-    app = Path(__file__).resolve().parent / "app.py"
-    return subprocess.call([sys.executable, "-m", "streamlit", "run", str(app), *extra])
+def studio(args, extra=()):
+    """Open the Studio: the web app (default) or the classic Streamlit one (--classic)."""
+    if getattr(args, "classic", False):
+        import subprocess
+        import sys
+        from pathlib import Path
+        app = Path(__file__).resolve().parent / "app.py"
+        return subprocess.call([sys.executable, "-m", "streamlit", "run", str(app), *extra])
+    from .web.server import serve
+    return serve(port=args.port, open_browser=not args.no_browser)
 
 
 def list_agents():
@@ -185,7 +188,10 @@ def run_agent(arg, check_only=False):
 def main(argv=None):
     parser = argparse.ArgumentParser(prog="offline-agent", description="AI agents on local models.")
     sub = parser.add_subparsers(dest="cmd")
-    sub.add_parser("studio", help="open the Studio in your browser")
+    p_studio = sub.add_parser("studio", help="open the Studio in your browser")
+    p_studio.add_argument("--port", type=int, default=8765, help="port on this computer (default 8765)")
+    p_studio.add_argument("--no-browser", action="store_true", help="don't open a browser window")
+    p_studio.add_argument("--classic", action="store_true", help="the older Streamlit Studio")
     sub.add_parser("list", help="list agents and templates")
     p_run = sub.add_parser("run", help="chat with an agent in the terminal")
     p_run.add_argument("agent", help="agent YAML path or name, e.g. file_sorter")
@@ -212,7 +218,7 @@ def main(argv=None):
     args, extra = parser.parse_known_args(argv)
 
     if args.cmd == "studio":
-        return studio(extra)
+        return studio(args, extra)
     if args.cmd == "run":
         return run_agent(args.agent)
     if args.cmd == "check":
