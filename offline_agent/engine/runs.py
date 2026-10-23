@@ -262,6 +262,9 @@ class RunManager:
         self._record(run, {"type": "user", "content": message, "auto": True, "worker": True})
         return self._turn(run, worker, message)
 
+    def run_dir(self, rid):
+        return RUNS_DIR / rid
+
     def worker_roots(self, rid):
         from .paths import resolve_folder
         agent = self._agents.get(rid)

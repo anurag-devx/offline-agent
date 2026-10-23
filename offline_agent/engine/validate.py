@@ -43,6 +43,9 @@ def validate(cfg):
         limit = llm.context_limit(cfg.model) if installed else 0
         if limit and cfg.context_length > limit:
             checks.append(_check("Context length", False, f"{cfg.model} supports at most {limit:,} tokens.", "warning"))
+        if getattr(cfg, "lead_model", "") and cfg.lead_model not in llm.list_models():
+            checks.append(_check("Lead model installed", False,
+                                 f"Run `ollama pull {cfg.lead_model}`, or Relay's PM will use {cfg.model}.", "warning"))
         if cfg.verify.enabled and cfg.verify.model:
             checks.append(_check("Verifier model installed", cfg.verify.model in llm.list_models(),
                                  f"Run `ollama pull {cfg.verify.model}` or leave it empty to use the agent's model."))

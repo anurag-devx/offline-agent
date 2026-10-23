@@ -231,6 +231,15 @@ with tabs[0]:
                               "back together and has it reviewed.")
         time_limit = int(r2.number_input("Relay time limit (min, 0 = none)", 0, 24 * 60, base.time_limit_min,
                                          step=30, key=k("tlimit")))
+        leads = [""] + [m for m in models if m != model]
+        if base.lead_model and base.lead_model not in leads:
+            leads.append(base.lead_model)
+        lead_model = st.selectbox("Relay lead model (PM, style guide, visual review)", leads,
+                                  leads.index(base.lead_model) if base.lead_model in leads else 0, key=k("lead"),
+                                  format_func=lambda m: m or "same as the agent",
+                                  disabled=mode == "rules" or route == "single",
+                                  help="A bigger model plans, designs and looks at screenshots; small workers "
+                                       "build the chunks. Needs a model that can read images for the visual review.")
 
     with st.container(border=True):
         st.markdown("**🔍 Verification**")
@@ -257,7 +266,7 @@ with tabs[0]:
                       max_steps=max_steps, temperature=temperature, think=think,
                       context_length=int(context_length), verify=verify_cfg, mode=mode,
                       plan_steps=plan_steps, terse=terse, max_reply_tokens=max_reply, full_voice=full_voice,
-                      route=route, time_limit_min=time_limit)
+                      route=route, time_limit_min=time_limit, lead_model=lead_model)
     st.caption("**Tools this agent gets:** " + ", ".join(f"`{t}`" for t in tools_for(cfg)))
 
     if st.button("💾 Save agent", type="primary"):

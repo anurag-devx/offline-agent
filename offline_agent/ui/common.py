@@ -235,6 +235,13 @@ def render_run(run, key):
         with st.expander(f"🏃 Relay · {done}/{len(run.relay['chunks'])} chunks · {run.relay.get('phase')}",
                          expanded=True):
             st.markdown(relay_markdown(run.id, run.relay))
+            shots = (run.relay.get("test") or {}).get("shots") or {}
+            cols = st.columns(2) if shots else []
+            for col, (label, path) in zip(cols, shots.items()):
+                try:
+                    col.image(path, caption=f"{label} (browser test)")
+                except Exception:
+                    pass
             st.caption(f"Saved as runs/{run.id}/notes.md")
     if mgr.can_resume(run.id) and st.button("▶ Resume Relay job", key=f"resume{key}"):
         mgr.resume(run.id)

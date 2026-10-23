@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+- **Relay quality**:
+  - **Feature chunks**: big files are split by feature (script.js → data, cart, filters, form checks…);
+    workers sharing a file add their part, and code checks nobody removed another chunk's part
+  - **Style guide**: for visual work the lead writes concrete colours, type, spacing, components and phone
+    layout; every visual worker follows it
+  - **🌐 Browser test** (`engine/browser.py`, Playwright, optional): the PM writes checks in a tiny step
+    language (`click`, `fill`, `expect_text`, `expect_count`, `reload`, `phone`…); code runs them in a real
+    browser, plus JavaScript errors (with file and line), broken images, missing charset and sideways
+    scrolling on a phone. Failures go back to the owning chunk as patch fixes (3 rounds)
+  - **👀 Visual review**: the lead looks at desktop + phone screenshots against the style guide and sends
+    concrete CSS/HTML fixes to the chunk that owns the file
+  - **Lead model** per agent (`lead_model`): plans, designs, looks and writes the answer; workers use the
+    agent's model. Website Builder: `gemma4:12b-it-q4_K_M`, falls back if not installed
+- Bench: `browser:` checks; the Website Builder test now clicks through the site (11 checks)
 - **Pinpoint + Patch**: the Inspector returns findings (file, line, problem, fix); code checks them and
   attaches the real lines; agents fix just that spot with new tools `read_lines` (line numbers by code),
   `edit_file` (exact replace, refused unless the text appears once; tolerant of indentation and pasted

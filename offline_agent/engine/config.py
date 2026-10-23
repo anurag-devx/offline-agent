@@ -51,6 +51,7 @@ class AgentConfig:
     full_voice: bool = True     # final answers as detailed as needed; continued automatically if cut off
     route: str = "auto"         # Triage: "auto" decides per task | "single" main agent | "relay" PM + small agents
     time_limit_min: int = 180   # Relay jobs stop after this many minutes (0 = no limit)
+    lead_model: str = ""        # Relay: model for the PM, style guide and visual review ("" = same model)
 
     @classmethod
     def from_dict(cls, data):
@@ -75,7 +76,7 @@ class AgentConfig:
                 "context_length": self.context_length, "verify": asdict(self.verify),
                 "mode": self.mode, "plan_steps": self.plan_steps, "terse": self.terse,
                 "max_reply_tokens": self.max_reply_tokens, "full_voice": self.full_voice,
-                "route": self.route, "time_limit_min": self.time_limit_min}
+                "route": self.route, "time_limit_min": self.time_limit_min, "lead_model": self.lead_model}
 
     def to_yaml(self):
         return yaml.dump(self.to_dict(), sort_keys=False, allow_unicode=True)

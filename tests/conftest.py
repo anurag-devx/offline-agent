@@ -45,6 +45,9 @@ class FakeModel:
                     return ChatResponse(model=model, prompt_eval_count=10, eval_count=5, **self.durations,
                                         message=Message(role="assistant", content=json.dumps(value)))
             raise AssertionError(f"no fake reply for schema {list(format.get('properties', {}))}")
+        if not tools and str(messages[0].get("content", "")).startswith("You are the design lead. Write"):
+            return ChatResponse(model=model, prompt_eval_count=10, eval_count=5, **self.durations,
+                                message=Message(role="assistant", content="STYLE GUIDE: cream #fdf6e3, brown #6b3e26"))
         reply = self.script.pop(0) if self.script else "done"
         if isinstance(reply, dict):  # {"content", "calls": [(tool, args)], "thinking"}
             msg = Message(role="assistant", content=reply.get("content", ""), thinking=reply.get("thinking"),
@@ -80,6 +83,8 @@ def fake(monkeypatch, tmp_path):
     llm.capabilities.cache_clear()
     llm.context_limit.cache_clear()
     monkeypatch.setattr(runs, "RUNS_DIR", tmp_path / "runs")
+    from offline_agent.engine import browser
+    monkeypatch.setattr(browser, "available", lambda: False)  # tests that need a real browser opt in
     monkeypatch.setattr(audit, "LOG_FILE", tmp_path / "logs" / "activity.jsonl")
     return model
 

@@ -54,7 +54,8 @@ cases:
          "Open now" or "Closed" from the current day and time.
       6. id="order": a cart id="cart" listing added items with quantity, + and - buttons, a remove
          button, line totals and a grand total in ₹; "Your cart is empty" when empty. Below it an
-         order form id="order-form" with name, phone and pickup time.
+         order form id="order-form" with the fields id="name", id="phone" and id="pickup" (pickup time)
+         and a submit button.
       7. id="contact": "12 Baker Street, Bengaluru", +91 98765 43210, mailto:hello@crumbs.in.
       8. <footer>: "© 2026 Crumbs".
 
@@ -106,6 +107,19 @@ cases:
       - {file_contains: {path: site/style.css, text: ['@media', '--', 'hover']}}
       - {file_not_contains: {path: site/index.html, text: [lorem ipsum, TODO, your text here]}}
       - {file_not_contains: {path: site/script.js, text: [TODO]}}
+      - browser:
+          page: site/index.html
+          checks:
+            - {name: menu shows 6 items, steps: ['expect_at_least "#menu [data-category]" 6']}
+            - {name: add to cart, steps: ['click "text=Add to cart"', 'expect_no_text #cart "your cart is empty"', 'expect_text #cart ₹']}
+            - {name: remove empties the cart, steps: ['click "text=Add to cart"', 'click "#cart button:has-text(''emove''), #cart button:has-text(''×'')"', 'expect_text #cart "empty"']}
+            - {name: cart survives reload, steps: ['click "text=Add to cart"', reload, 'expect_no_text #cart "your cart is empty"']}
+            - {name: cakes filter, steps: ['click "button:has-text(''Cakes'')"', 'expect_count "#menu [data-category=bread]" 0', 'expect_at_least "#menu [data-category=cake]" 1']}
+            - {name: dark mode, steps: ['click #theme-toggle', 'expect_class body dark']}
+            - {name: open or closed badge, steps: ['expect_text #open-status "open now|closed"']}
+            - {name: form shows an error, steps: ['click "#order-form [type=submit], #order-form button"', 'expect_text #order-form "required|valid|enter|please|10 digits|must"']}
+            - {name: order is confirmed, steps: ['click "text=Add to cart"', 'fill #name Anurag', 'fill #phone 9876543210', 'fill #pickup 10:30', 'click "#order-form [type=submit], #order-form button"', 'expect_visible #order-confirmation']}
+            - {name: phone menu opens, steps: [phone, 'click #menu-toggle', 'expect_visible "header nav a"']}
 
   - agent: News Collector
     needs: internet

@@ -150,6 +150,22 @@ def run_checks(checks, run, sandbox):
                 rules = [e for e in run.events if e["type"] == "rule"]
                 ok = bool(rules) and str(arg).lower() in json.dumps(rules[-1].get("rules", "")).lower()
                 out.append((f"rule mentions {arg}", ok, ""))
+            elif kind == "browser":  # open the page in a real browser and use it like a person
+                from . import browser
+                if not browser.available():
+                    out.append(("browser tests", False, f"install them first: {browser.INSTALL}"))
+                    continue
+                page = sandbox / arg["page"]
+                if not page.is_file():
+                    out.append(("browser tests", False, f"{arg['page']} missing"))
+                    continue
+                r = browser.run(page, arg.get("checks"))
+                out.append(("page loads without JavaScript errors", not r["js_errors"], "; ".join(r["js_errors"][:2])))
+                for problem in r["smoke"]:
+                    out.append(("page " + problem.split(":")[0], False, problem))
+                for c in r["checks"]:
+                    out.append((f"browser: {c['name']}", c["ok"],
+                                "" if c["ok"] else f"failed at `{c['failed_step']}`: {c['detail']}"))
             elif kind == "max_calls":
                 n = sum(e["type"] == "model_call" for e in run.events)
                 out.append((f"at most {arg} model calls", n <= arg, f"{n} calls"))

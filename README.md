@@ -123,21 +123,37 @@ So big jobs are split up:
   its length; only when that's unclear does the model rate it. Simple tasks go to the main agent,
   complex ones to Relay.
 - **🏃 Relay**: a **PM agent** writes a plan: a shared *contract* (file names, ids, class names, data that
-  every piece must use) and small *chunks*, one output each. Then, one after another:
-  1. a fresh **worker** builds each chunk, seeing only the brief, the contract, its chunk and the files it
-     depends on, so its context stays small;
-  2. **code checks** each chunk (file exists, must-have texts, no placeholders); a failed chunk is retried
+  every piece must use), small *chunks* (one file, or **one feature of a file**: script.js becomes
+  "data", "cart", "filters", "form checks"…) and, for web pages, **browser checks** of what the page must do.
+  Then, one after another:
+  1. a **lead model** writes a concrete **style guide** (colours, type, spacing, components, phone layout);
+  2. a fresh **worker** builds each chunk, seeing only the brief, the contract, the style guide, its chunk and
+     the files it depends on; workers sharing a file add their part with `insert_lines`, and code checks
+     nobody removed another chunk's part;
+  3. **code checks** each chunk (file exists, must-have texts, no placeholders); a failed chunk is retried
      with the reason, and only that chunk;
-  3. an **integration** worker checks the pieces fit together and fixes mismatches;
-  4. the **Inspector** reviews the whole result; the PM sends the chunks that need work back, up to 2 rounds.
+  4. an **integration** worker checks the pieces fit together;
+  5. **🌐 browser test**: code opens the page in a real (invisible) browser and runs the checks (click
+     "Add to cart" → the cart shows ₹250…), plus JavaScript errors, broken images and phone layout.
+     Failures go back to the chunk that owns them, with the exact line, as patch fixes;
+  6. **👀 visual review**: the lead looks at screenshots (desktop + phone) against the style guide and sends
+     concrete CSS/HTML fixes back;
+  7. the **Inspector** reviews the whole result; the PM sends the chunks that need work back, up to 2 rounds.
 
 Code runs this loop, not a model. Relay jobs can take hours on a laptop, so their state is saved in
 the run: **▶ Resume** in the run view (or `offline-agent resume`) continues where it stopped, even
 after a restart. Per agent: **How big tasks run** = Triage decides / Main agent / Relay, plus a time limit.
 
+Browser checks need Playwright once (about 150 MB, works offline afterwards):
+
 ```bash
+pip install playwright && python -m playwright install chromium
 offline-agent bench --agents "Website Builder" --route main,relay --timeout 180
 ```
+
+The lead model is set per agent (Studio → How it works). Website Builder uses `gemma4:12b-it-q4_K_M`
+(`ollama pull gemma4:12b-it-q4_K_M`, 8 GB) and falls back to the agent's model if it isn't installed;
+the visual review needs a lead model that can read images.
 
 ## Test Bench
 
@@ -279,7 +295,9 @@ offline_agent/
     ledger.py        job notes: plan, checklist, evidence, notes.md
     verifier.py      read-only checker for "is the task really done?"
     triage.py        decides: main agent or Relay
-    relay.py         Relay: PM plan, one worker per chunk, checks, integration, review
+    relay.py         Relay: PM plan, style guide, one worker per chunk, browser test, visual review
+    browser.py       real-browser checks (Playwright): steps, JavaScript errors, screenshots
+    findings.py      reviewer findings → exact lines → patch fixes
     memory.py        long-term memory (SQLite + local embeddings)
     scheduler.py     scheduled runs
     bench.py         Test Bench: sandboxed tests, code checks, comparisons
@@ -304,7 +322,6 @@ New to agents? Read [docs/WALKTHROUGH.md](docs/WALKTHROUGH.md).
 
 ## Roadmap
 
-- Real-browser click tests for websites the agents build (cart, forms, filters)
 - Cascade: a small model first, a bigger one only when a check fails
 - Offline Coder: a coding agent (edit a repo, run tests, git checkpoints) on the same engine
 - Template gallery and tool plugins
