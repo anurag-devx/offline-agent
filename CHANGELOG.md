@@ -42,6 +42,14 @@
   - The PM's browser checks are checked first: a selector naming an element HTML doesn't have is
     repaired (`#form submit` → `#form [type=submit]`) or the check is dropped; ids the checks use are
     given to the HTML chunk, so nothing is left unbuilt
+  - **🚧 Plan gate** (`engine/plangate.py`): code checks every instruction the PM writes for code
+    before anyone works from it. Example code in `must_contain` becomes the one name code can find
+    (`<path d="..." />` → `<path`, `<section id="menu">` → `#menu`, `.card { … }` → `.card`,
+    `addToCart(itemId)` → `addToCart`); a chunk's own file path is dropped; when two chunks of one
+    file would both create the same id, the first owns it and the later one fills it in place. A
+    real run had lost 6 of 13 chunks to checks that could never pass
+  - Runs and the bench warn when other models are loaded in Ollama (`ollama ps`): on 16 GB that
+    makes every call slow, and the bench report says so
   - A failed click says why: no element matches, hidden at this size, or covered by another element
   - `must_contain` understands selectors (`#menu-toggle` matches `id="menu-toggle"`); SVG drawings need
     at least 6 shapes; a text chunk that changed files counts as done

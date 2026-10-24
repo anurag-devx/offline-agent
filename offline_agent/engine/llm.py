@@ -34,6 +34,18 @@ def list_models():
     return [n for n in names if "embed" not in n]  # embedding models can't chat
 
 
+def busy(mine=()):
+    """Other models loaded in Ollama right now, e.g. ['qwen3.5:9b (6.0 GB)']. On a 16 GB laptop a second
+    model in memory makes every call slow (swapping), so runs and the bench warn about it."""
+    try:
+        loaded = ollama.ps().models
+    except Exception:
+        return []
+    keep = {str(m) for m in mine if m}
+    return [f"{m.model} ({(getattr(m, 'size', 0) or 0) / 1e9:.1f} GB)" for m in loaded
+            if m.model not in keep and "embed" not in m.model]
+
+
 @lru_cache(maxsize=None)
 def capabilities(model):
     """What a model supports, e.g. ['completion', 'tools', 'thinking']. Empty if unknown."""

@@ -30,7 +30,7 @@ import re
 import time
 from pathlib import Path
 
-from . import browser, joins, llm
+from . import browser, joins, llm, plangate
 from .config import VerifyConfig
 from .findings import PATCH_RULE, as_text, locate
 from .speed import timing
@@ -101,8 +101,9 @@ Rules:
   the task names (e.g. "site/index.html", or the full path if the task gives one).
 - `goal`: everything this chunk must do, in detail. Copy exact texts, names, numbers, prices,
   addresses from the task. A worker sees only its own goal, the contract and the style guide.
-- `must_contain`: 2-10 short exact strings this chunk adds to the output (ids, names, function
-  names, key texts).
+- `must_contain`: 2-10 short exact strings this chunk adds to the output, as code will search for
+  them: "#menu-toggle", ".card", "addToCart", "Sourdough bread", "₹120". Names only: no code samples,
+  no "...", no file paths.
 - `contract`: the shared agreement every chunk must follow. Be exact and complete: this is the ONLY
   way separate workers' pieces fit together. List:
   FILES: every path. IDS: every id and its element. CLASSES: every class name and what it is for
@@ -206,7 +207,7 @@ def clean_plan(plan, task):
         if cid in seen:
             cid = f"c{i}"
         seen.add(cid)
-        must = [str(m).strip() for m in (c.get("must_contain") or []) if 0 < len(str(m).strip()) <= 60][:10]
+        must = [str(m).strip() for m in (c.get("must_contain") or []) if str(m).strip()][:16]
         chunks.append(_chunk(cid, str(c.get("title") or cid)[:80], str(c.get("output") or "").strip(),
                              str(c.get("goal") or "").strip(), must,
                              [d for d in (c.get("depends_on") or []) if d in seen and d != cid]))
@@ -219,9 +220,11 @@ def clean_plan(plan, task):
             c["owner"] = next((x["id"] for x in reversed(chunks) if x["output"].endswith(".js")), None) or \
                 next((x["id"] for x in reversed(chunks) if x["output"].endswith(VISUAL)), chunks[-1]["id"])
     contract = str(plan.get("contract") or "")
+    gate = plangate.gate(chunks)  # make every must_contain checkable; one owner per id
     _cover(chunks, checks, contract)
     return {"understanding": str(plan.get("understanding") or "")[:300], "contract": contract,
-            "chunks": chunks, "page": str(plan.get("page") or "").strip(), "checks": checks, "dropped_checks": dropped}
+            "chunks": chunks, "page": str(plan.get("page") or "").strip(), "checks": checks, "dropped_checks": dropped,
+            "gate": gate}
 
 
 def _cover(chunks, checks, contract):
@@ -306,6 +309,8 @@ def markdown(job_id, state):
         out += ["", f"**Integration:** {state['integrate']}"]
     if state.get("joins"):
         out += ["", "**Code still sees mismatches between files:**"] + [f"- {x}" for x in state["joins"][:8]]
+    if state.get("gate"):
+        out += ["", "**Plan gate (code made the PM's checks checkable):**"] + [f"- {x}" for x in state["gate"][:13]]
     if state.get("dropped_checks"):
         out += ["", "**Browser checks dropped (could never pass):** " + "; ".join(state["dropped_checks"])]
     if state.get("test"):
@@ -440,6 +445,10 @@ class Relay:
 
     def plan(self):
         task = self.state["task"]
+        others = llm.busy([self.cfg.model, self.lead])
+        if others:
+            self._event(phase="plan", content=f"Other models are loaded ({', '.join(others)}): every call will be "
+                                              "slower until they unload.")
         names = [n for n in tools_for(self.cfg) if not n.startswith("_")]
         can_write = "write_file" in names
         system = PM_PLAN.format(
@@ -459,6 +468,9 @@ class Relay:
                 self._event(phase="plan", content=f"PM plan failed ({e}); {'retrying' if not attempt else 'one chunk'}.")
         plan = plan or clean_plan({}, task)
         self.state.update(plan)
+        if plan.get("gate"):
+            self._event(phase="plan", content=f"Plan gate: code made {len(plan['gate'])} chunk(s) checkable: "
+                                              + " | ".join(plan["gate"][:5]))
         if plan.get("dropped_checks"):
             self._event(phase="plan", content="Dropped browser checks that could never pass: "
                                               + "; ".join(plan["dropped_checks"][:4]))

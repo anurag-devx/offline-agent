@@ -304,6 +304,11 @@ def bench(args):
     job = start_job(get_manager(), agents=names, models=models, variants=variants,
                     internet=args.internet, email=args.email, timeout=args.timeout * 60)
     print(f"Bench {job.id}: {job.total} test runs. Ctrl+C to stop.")
+    from .engine import llm
+    others = llm.busy(models)
+    if others:
+        print(f"  Warning: other models are loaded ({', '.join(others)}). On a laptop this makes every call "
+              "slow; let them unload (ollama ps) for fair times.")
     shown = 0
     try:
         while not job.done:

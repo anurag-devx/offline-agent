@@ -18,7 +18,7 @@ from pathlib import Path
 
 import yaml
 
-from . import audit
+from . import audit, llm
 from .config import AGENTS_DIR, ROOT, TEMPLATES_DIR, WORKSPACE, VerifyConfig, list_configs, load_agent
 from .credentials import email_configured
 from .paths import PKG_DIR
@@ -245,6 +245,7 @@ class BenchJob:
         self._stop.set()
 
     def run(self):
+        self.busy = llm.busy(self.models)
         found = available_agents()
         n = 0
         for name in self.agents:
@@ -296,7 +297,7 @@ class BenchJob:
 
     def save(self):
         BENCH_DIR.mkdir(exist_ok=True)
-        data = {"id": self.id, "results": self.results, "summary": self.summary()}
+        data = {"id": self.id, "results": self.results, "summary": self.summary(), "busy": getattr(self, "busy", [])}
         (BENCH_DIR / f"{self.id}.json").write_text(json.dumps(data, indent=2, default=str), encoding="utf-8")
         (BENCH_DIR / f"{self.id}.md").write_text(report_markdown(data), encoding="utf-8")
 
@@ -332,6 +333,9 @@ def report_markdown(data):
         lines.append(f"| {s['model']} | {s['variant']} | {s['passed']} | {s.get('avg_score', '')} | "
                      f"{s.get('retries', 0)} | {s['avg_seconds']}s | {s['avg_model_s']}s | "
                      f"{s['avg_calls']} | {s['avg_tokens_in']:.0f}/{s['avg_tokens_out']:.0f} | {s['avg_saved_pct']:.0f}% |")
+    if data.get("busy"):
+        lines += ["", f"⚠️ Other models were loaded when the bench started: {', '.join(data['busy'])}. "
+                  "Times are slower than on an idle machine."]
     lines += ["", f"Score = % of checks passed, minus {RETRY_PENALTY} for each Inspector send-back.",
               "", "## Every test", "",
               "| Agent | Model | Variant | Result | Score | Retries | Time | Calls | Failed checks |",

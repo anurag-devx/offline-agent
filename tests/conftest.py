@@ -80,6 +80,7 @@ def fake(monkeypatch, tmp_path):
             vec[vocab.setdefault(w, len(vocab) % 64)] += 1.0
         return {"embeddings": [vec]}
     monkeypatch.setattr(ollama, "embed", fake_embed)
+    monkeypatch.setattr(ollama, "ps", lambda: type("PS", (), {"models": []})())  # nothing else loaded
     llm.capabilities.cache_clear()
     llm.context_limit.cache_clear()
     monkeypatch.setattr(runs, "RUNS_DIR", tmp_path / "runs")
